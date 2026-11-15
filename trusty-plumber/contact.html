@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2218%22 fill=%22%230a4d80%22/><text x=%2250%22 y=%2268%22 font-size=%2258%22 text-anchor=%22middle%22 fill=%22%23f2a81d%22 font-family=%22Georgia%22 font-weight=%22bold%22>T</text></svg>">
+<link rel="stylesheet" href="styles.css">
+<title>Contact Trusty Plumber | 405 S Main St, Fort Worth, TX | (817) 587-2852</title>
+<meta name="description" content="Contact Trusty Plumber in Fort Worth, TX for repairs, installations, or maintenance. 405 S Main St, Fort Worth, TX 76104. Open 24 hours, 7 days a week. Call (817) 587-2852.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Plumber","name":"Trusty Plumber Fort Worth","telephone":"+1-817-587-2852","address":{"@type":"PostalAddress","streetAddress":"405 S Main St","addressLocality":"Fort Worth","addressRegion":"TX","postalCode":"76104","addressCountry":"US"},"geo":{"@type":"GeoCoordinates","latitude":32.740937,"longitude":-97.325684},"aggregateRating":{"@type":"AggregateRating","ratingValue":"5.0","reviewCount":"7"},"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"}]}
+</script>
+</head>
+<body>
+<div class="topstrip">Plumbing repairs, installations &amp; maintenance in Fort Worth — open 7 days, 8 AM to 8 PM · <a href="tel:+18175872852">(817) 587-2852</a></div>
+<header class="site">
+<a class="logo" href="index.html">Trusty Plumber<small>FORT WORTH, TEXAS</small></a>
+<nav class="main" aria-label="Main">
+<a href="index.html">Home</a><a href="services.html">Services</a><a href="about.html">About</a><a href="contact.html">Contact</a>
+</nav>
+<a class="callbtn" href="tel:+18175872852">Call the plumber</a>
+</header>
+<section><div class="wrap">
+<h1 style="font-size:29px;margin-bottom:10px">Contact Trusty Plumber</h1>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px">
+<div>
+<h2 style="font-size:20px">Call us</h2>
+<p style="font-size:19px"><a href="tel:+18175872852"><strong>(817) 587-2852</strong></a></p>
+<p>For an active leak, calling is fastest. If you can, shut the water off first — the nearest valve, or the main — then call.</p>
+<h2 style="font-size:20px;margin-top:20px">Visit or write</h2>
+<p>405 S Main St<br>Fort Worth, TX 76104</p>
+<h2 style="font-size:20px;margin-top:20px">Hours</h2>
+<table class="hours"><tr><td>Monday – Sunday</td><td>Open 24 hours</td></tr></table>
+<p style="margin-top:10px">Based in Fort Worth, serving the surrounding area. Not sure if we cover your address? Call and ask.</p>
+</div>
+<div>
+<h2 style="font-size:20px">Request a call back</h2>
+<form id="reqForm" novalidate>
+<label for="name">Your name</label>
+<input id="name" name="name" type="text" autocomplete="name" required>
+<div class="err" id="e-name">Please add your name.</div>
+<label for="phone">Phone number</label>
+<input id="phone" name="phone" type="tel" autocomplete="tel" required>
+<div class="err" id="e-phone">Please add a phone number so we can call you back.</div>
+<label for="need">What do you need?</label>
+<select id="need" name="need">
+<option>A repair — something is leaking or broken</option>
+<option>A new installation</option>
+<option>Routine maintenance</option>
+<option>Not sure — I need advice first</option>
+</select>
+<label for="msg">Describe the problem</label>
+<textarea id="msg" name="msg" rows="4" placeholder="Where is it, what is it doing, and when did it start?"></textarea>
+<button class="submit" type="submit">Request call back</button>
+<div class="form-note"><strong>Draft notice:</strong> this form is part of a website concept and is not connected to an inbox yet. Before launch it must be connected to the business's email. For anything urgent, please call instead.</div>
+<div class="form-msg" id="formMsg">Thanks — your details passed validation. On the live site this would now be sent to the business. (Demo only: nothing was sent.)</div>
+</form>
+</div>
+</div>
+</div></section>
+<script>
+document.getElementById('reqForm').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var ok=true;
+  [['name','e-name'],['phone','e-phone']].forEach(function(p){
+    var f=document.getElementById(p[0]),e=document.getElementById(p[1]);
+    if(!f.value.trim()){e.style.display='block';ok=false;}else{e.style.display='none';}
+  });
+  if(ok){document.getElementById('formMsg').style.display='block';}
+});
+</script>
+<footer>
+<div class="wrap">
+<div><strong style="color:#fff">Trusty Plumber Fort Worth</strong><br>405 S Main St, Fort Worth, TX 76104<br><a href="tel:+18175872852">(817) 587-2852</a></div>
+<div>Open 7 days a week<br>8:00 AM – 8:00 PM</div>
+<div><a href="index.html">Home</a> · <a href="services.html">Services</a> · <a href="about.html">About</a> · <a href="contact.html">Contact</a></div>
+</div>
+</footer>
+<div class="callbar"><a href="tel:+18175872852">Call (817) 587-2852</a></div>
+</body>
+</html>
