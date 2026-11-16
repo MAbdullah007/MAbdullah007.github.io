@@ -13,7 +13,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;colo
 a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
 header{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20;box-shadow:0 1px 6px rgba(0,0,0,.05)}
-.topbar{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:8px 0;flex-wrap:nowrap}
+.topbar{display:flex;gap:10px;justify-content:space-between;align-items:center;padding-top:9px;padding-bottom:9px;flex-wrap:nowrap}
 .logo{display:flex;gap:11px;align-items:center;min-width:0}
 .mark{width:40px;height:40px;border-radius:10px;background:#065f46;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex:none;letter-spacing:.02em}
 .logo .nm{font-size:1.02rem;letter-spacing:-.01em;font-weight:800;line-height:1.2;color:#111827}
@@ -24,20 +24,26 @@ nav{background:#f9fafb;border-top:1px solid #f3f4f6}
 nav .wrap{display:flex;gap:24px;padding-top:8px;padding-bottom:8px;overflow-x:auto}
 nav a{color:#374151;text-decoration:none;font-weight:600;font-size:.93rem;white-space:nowrap}
 nav a.active{color:#065f46;text-decoration:underline;text-underline-offset:4px}
-.hero{background-size:cover;background-position:center;color:#fff;padding:64px 0}
-.hero h1{font-size:2rem;line-height:1.2;margin-bottom:14px;text-shadow:0 2px 10px rgba(0,0,0,.45)}
+.hero{background-size:cover;background-position:center;color:#fff;padding:56px 0}
+.hero h1{font-size:2.15rem;line-height:1.15;margin-bottom:14px;letter-spacing:-.01em;text-shadow:0 2px 10px rgba(0,0,0,.45)}
 .hero p{max-width:640px;text-shadow:0 1px 6px rgba(0,0,0,.5)}
 .hero .cta{margin-top:22px;display:flex;gap:12px;flex-wrap:wrap}
 .btn{display:inline-block;background:#fff;color:#022c22;font-weight:800;text-decoration:none;padding:12px 22px;border-radius:999px}
 .btn.ghost{background:transparent;color:#fff;border:2px solid #fff}
+.estcard{background:#fff;color:#1f2937;border-radius:16px;padding:22px;margin-top:26px;max-width:520px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.estcard h3{color:#022c22;font-size:1.15rem;margin-bottom:6px}
+.estcard p{color:#4b5563;text-shadow:none;font-size:.95rem}
+.estcard .btn{background:#065f46;color:#fff;margin-top:14px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .badge{display:inline-block;background:#fff;color:#022c22;font-weight:800;border-radius:999px;padding:6px 14px;margin-bottom:14px;font-size:.9rem}
-section{padding:44px 0}
-h2{font-size:1.5rem;margin-bottom:16px;color:#022c22}
+section{padding:48px 0}
+h2{font-size:1.55rem;margin-bottom:18px;color:#022c22;letter-spacing:-.01em}
+.eyebrow{display:block;font-size:.78rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#065f46;margin-bottom:6px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-.card{border:1px solid #e5e7eb;border-radius:14px;padding:22px;background:#f9fafb}
+.card{border:1px solid #e5e7eb;border-radius:14px;padding:22px;background:#fff;box-shadow:0 2px 10px rgba(17,24,39,.05)}
+.icn{width:46px;height:46px;border-radius:12px;background:#065f46;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
 .card h3{margin-bottom:8px;color:#065f46;font-size:1.08rem}
 .gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
-.gal figure{border-radius:14px;overflow:hidden;border:1px solid #e5e7eb;background:#f9fafb}
+.gal figure{border-radius:14px;overflow:hidden;border:1px solid #e5e7eb;background:#f9fafb;box-shadow:0 2px 10px rgba(17,24,39,.06)}
 .gal img{width:100%;height:190px;object-fit:cover;display:block}
 .gal figcaption{padding:10px 14px;font-size:.9rem;font-weight:600;color:#374151}
 .strip{background:#f3f4f6}
@@ -69,7 +75,7 @@ button{background:#065f46;color:#fff;border:0;font-weight:800;padding:13px 22px;
 .ctaband .btn{margin-top:14px}
 .callbar{display:none}
 @media(max-width:640px){.callbar{display:block;position:fixed;left:0;right:0;bottom:0;background:#065f46;color:#fff;text-align:center;font-weight:800;padding:15px;text-decoration:none;z-index:30;box-shadow:0 -2px 10px rgba(0,0,0,.2)}body{padding-bottom:52px}}
-@media(max-width:640px){.hero h1{font-size:1.55rem}
+@media(max-width:640px){.hero h1{font-size:1.6rem}
 .callbtn{display:none}
 .callbtn-m{display:flex;width:42px;height:42px;border-radius:50%;background:#065f46;align-items:center;justify-content:center;flex:none}
 .logo .nm{font-size:.94rem;line-height:1.15}}
@@ -82,17 +88,18 @@ button{background:#065f46;color:#fff;border:0;font-weight:800;padding:13px 22px;
 <div class="hero" style="background-image:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url('https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Downtown_Fort_Worth_Skyline.jpg/1280px-Downtown_Fort_Worth_Skyline.jpg')"><div class="wrap"><h1>Auto Repair &amp; Body Work in Fort Worth</h1>
 <p>Gutierrez Auto Services is a Fort Worth shop for auto repair and auto body work. One local shop for mechanical repairs and body work — call to tell us what your vehicle needs.</p>
 <div class="cta"><a class="btn" href="tel:+18178774435">Call (817) 877-4435</a>
-<a class="btn ghost" href="services.html">See Our Services</a></div></div></div>
-<div class="trust"><div class="wrap">Auto repair + auto body work — one Fort Worth shop for both</div></div><section><div class="wrap"><h2>What We Do — Auto Repair &amp; Auto Body Services in Fort Worth</h2><div class="grid"><div class="card"><h3>Auto Repair</h3><p>Mechanical auto repair for cars and light trucks in Fort Worth — diagnostics, repairs and maintenance.</p></div><div class="card"><h3>Auto Body Work</h3><p>Body work for vehicles that need attention after damage or wear — call to discuss your vehicle.</p></div><div class="card"><h3>Repairs &amp; Maintenance</h3><p>Everyday repairs and routine maintenance to keep your vehicle safe and reliable.</p></div></div>
+<a class="btn ghost" href="services.html">See Our Services</a></div>
+<div class="estcard"><h3>Need Auto Repair & Auto Body Help in Fort Worth?</h3><p>Call now and talk to a local Fort Worth team — no obligation. We serve the Stockyards area, North Fort Worth, Downtown and all of Fort Worth.</p><a class="btn" href="tel:+18178774435">Call (817) 877-4435</a></div></div></div>
+<div class="trust"><div class="wrap">Auto repair + auto body work — one Fort Worth shop for both</div></div><section><div class="wrap"><span class="eyebrow">Our Services</span><h2>What We Do — Auto Repair &amp; Auto Body Services in Fort Worth</h2><div class="grid"><div class="card"><div class="icn"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66l.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C14.96 15.88 12.84 18.9 11 21z"/></svg></div><h3>Auto Repair</h3><p>Mechanical auto repair for cars and light trucks in Fort Worth — diagnostics, repairs and maintenance.</p></div><div class="card"><div class="icn"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM5 11l1.5-4.5h11L19 11H5z"/></svg></div><h3>Auto Body Work</h3><p>Body work for vehicles that need attention after damage or wear — call to discuss your vehicle.</p></div><div class="card"><div class="icn"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM5 11l1.5-4.5h11L19 11H5z"/></svg></div><h3>Repairs &amp; Maintenance</h3><p>Everyday repairs and routine maintenance to keep your vehicle safe and reliable.</p></div></div>
 <p style="margin-top:16px"><a href="services.html" style="color:#065f46;font-weight:700">View all services →</a></p></div></section>
-<section class="strip"><div class="wrap"><h2>Proud to Serve Fort Worth, Texas</h2>
+<section class="strip"><div class="wrap"><span class="eyebrow">Service Area</span><h2>Proud to Serve Fort Worth, Texas</h2>
 <p style="margin-bottom:18px">We serve the Stockyards area, North Fort Worth, Downtown and all of Fort Worth.</p>
 <div class="gal"><figure><img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/8/82/Fort_Worth_Skyline_2025.jpg/1280px-Fort_Worth_Skyline_2025.jpg" alt="Auto Repair &amp; Auto Body in Fort Worth, Texas — Fort Worth skyline" loading="lazy"><figcaption>Fort Worth skyline</figcaption></figure><figure><img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Fort_Worth_Stockyards_Historic_District.jpg/1280px-Fort_Worth_Stockyards_Historic_District.jpg" alt="Auto Repair &amp; Auto Body in Fort Worth, Texas — Fort Worth Stockyards Historic District" loading="lazy"><figcaption>Fort Worth Stockyards Historic District</figcaption></figure><figure><img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b9/0011Fort_Worth_Stockyards_Exchange_Ave_E_Texas.jpg/1280px-0011Fort_Worth_Stockyards_Exchange_Ave_E_Texas.jpg" alt="Auto Repair &amp; Auto Body in Fort Worth, Texas — Exchange Avenue, Fort Worth Stockyards" loading="lazy"><figcaption>Exchange Avenue, Fort Worth Stockyards</figcaption></figure></div><div class="chips"><span class="chip">the Stockyards area</span><span class="chip">North Fort Worth</span><span class="chip">Downtown</span><span class="chip">all of Fort Worth</span></div></div></section>
-<section><div class="wrap"><h2>Visit or Call Us</h2>
+<section><div class="wrap"><span class="eyebrow">Find Us</span><h2>Visit or Call Us</h2>
 <p><b>1009 N Houston St, Fort Worth, TX 76164</b></p>
 <p style="margin-top:10px"><a class="bigcall" href="tel:+18178774435">(817) 877-4435</a></p>
 <p style="margin-top:6px"><a href="contact.html" style="color:#065f46;font-weight:700">Hours & directions →</a></p>
-</div></section><section class="strip"><div class="wrap"><h2>How It Works</h2><div class="steps"><div class="step"><div class="n">1</div><h3>Call Us</h3><p>Call (817) 877-4435 and tell us what is going on at your home or business.</p></div><div class="step"><div class="n">2</div><h3>We Assess the Job</h3><p>We look at the job, explain what is needed and agree the work with you first.</p></div><div class="step"><div class="n">3</div><h3>Work Done Right</h3><p>Our Fort Worth team completes the work and makes sure everything is working properly before we leave.</p></div></div></div></section><section><div class="wrap faq"><h2>Frequently Asked Questions — Auto Repair &amp; Auto Body in Fort Worth</h2><details><summary>What services does Gutierrez Auto offer in Fort Worth?</summary><p>Gutierrez Auto Services offers auto repair, auto body work, repairs &amp; maintenance for homes and small businesses in Fort Worth, TX.</p></details><details><summary>Where is Gutierrez Auto located?</summary><p>You will find us at 1009 N Houston St, Fort Worth, TX 76164. We serve the Stockyards area, North Fort Worth, Downtown and all of Fort Worth.</p></details><details><summary>What are the opening hours of Gutierrez Auto?</summary><p>Our hours — Monday – Friday: 9:00 AM – 5:00 PM; Saturday – Sunday: Closed.</p></details><details><summary>How do I book a job or get an estimate?</summary><p>Call us at (817) 877-4435 and tell us what you need. We will take it from there.</p></details></div></section><div class="ctaband"><div class="wrap"><h2>Need a Auto Repair &amp; Auto Body in Fort Worth?</h2><p>Call now and talk to a local team.</p><a class="btn" href="tel:+18178774435">Call (817) 877-4435</a></div></div><footer><div class="wrap">
+</div></section><section class="strip"><div class="wrap"><span class="eyebrow">Simple Process</span><h2>How It Works</h2><div class="steps"><div class="step"><div class="n">1</div><h3>Call Us</h3><p>Call (817) 877-4435 and tell us what is going on at your home or business.</p></div><div class="step"><div class="n">2</div><h3>We Assess the Job</h3><p>We look at the job, explain what is needed and agree the work with you first.</p></div><div class="step"><div class="n">3</div><h3>Work Done Right</h3><p>Our Fort Worth team completes the work and makes sure everything is working properly before we leave.</p></div></div></div></section><section><div class="wrap faq"><span class="eyebrow">Good to Know</span><h2>Frequently Asked Questions — Auto Repair &amp; Auto Body in Fort Worth</h2><details><summary>What services does Gutierrez Auto offer in Fort Worth?</summary><p>Gutierrez Auto Services offers auto repair, auto body work, repairs &amp; maintenance for homes and small businesses in Fort Worth, TX.</p></details><details><summary>Where is Gutierrez Auto located?</summary><p>You will find us at 1009 N Houston St, Fort Worth, TX 76164. We serve the Stockyards area, North Fort Worth, Downtown and all of Fort Worth.</p></details><details><summary>What are the opening hours of Gutierrez Auto?</summary><p>Our hours — Monday – Friday: 9:00 AM – 5:00 PM; Saturday – Sunday: Closed.</p></details><details><summary>How do I book a job or get an estimate?</summary><p>Call us at (817) 877-4435 and tell us what you need. We will take it from there.</p></details></div></section><div class="ctaband"><div class="wrap"><h2>Need a Auto Repair &amp; Auto Body in Fort Worth?</h2><p>Call now and talk to a local team.</p><a class="btn" href="tel:+18178774435">Call (817) 877-4435</a></div></div><footer><div class="wrap">
 <p><b>Gutierrez Auto Services</b><br>1009 N Houston St, Fort Worth, TX 76164<br>
 Phone: <a href="tel:+18178774435" style="color:#fff;font-weight:700">(817) 877-4435</a></p>
 <table class="hours" style="max-width:420px;margin-top:14px;color:#d1d5db"><tr><td>Monday – Friday</td><td>9:00 AM – 5:00 PM</td></tr><tr><td>Saturday – Sunday</td><td>Closed</td></tr></table>
