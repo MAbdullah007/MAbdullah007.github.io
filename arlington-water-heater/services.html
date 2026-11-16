@@ -12,15 +12,17 @@
 body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937;line-height:1.6;background:#fff}
 a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
-header{background:#0c4a6e;color:#fff}
-.topbar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;padding:14px 0}
-.logo{font-size:1.25rem;font-weight:800;line-height:1.25}
-.logo small{display:block;font-size:.78rem;font-weight:600;opacity:.85;letter-spacing:.04em;text-transform:uppercase}
-.callbtn{background:#0369a1;color:#fff;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:999px;white-space:nowrap}
-nav{background:rgba(0,0,0,.25)}
-nav .wrap{display:flex;gap:26px;padding-top:10px;padding-bottom:10px}
-nav a{color:#fff;text-decoration:none;font-weight:600;font-size:.95rem}
-nav a.active{text-decoration:underline;text-underline-offset:4px}
+header{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20;box-shadow:0 1px 6px rgba(0,0,0,.05)}
+.topbar{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:10px 0}
+.logo{display:flex;gap:11px;align-items:center;min-width:0}
+.mark{width:44px;height:44px;border-radius:12px;background:#0369a1;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex:none;letter-spacing:.02em}
+.logo .nm{font-size:1rem;font-weight:800;line-height:1.2;color:#111827}
+.logo small{display:block;font-size:.78rem;font-weight:500;color:#6b7280}
+.callbtn{background:#0369a1;color:#fff;text-decoration:none;font-weight:700;padding:9px 15px;border-radius:999px;white-space:nowrap;font-size:.92rem;flex:none}
+nav{background:#f9fafb;border-top:1px solid #f3f4f6}
+nav .wrap{display:flex;gap:24px;padding-top:8px;padding-bottom:8px;overflow-x:auto}
+nav a{color:#374151;text-decoration:none;font-weight:600;font-size:.93rem;white-space:nowrap}
+nav a.active{color:#0369a1;text-decoration:underline;text-underline-offset:4px}
 .hero{background-size:cover;background-position:center;color:#fff;padding:64px 0}
 .hero h1{font-size:2rem;line-height:1.2;margin-bottom:14px;text-shadow:0 2px 10px rgba(0,0,0,.45)}
 .hero p{max-width:640px;text-shadow:0 1px 6px rgba(0,0,0,.5)}
@@ -52,7 +54,7 @@ button{background:#0369a1;color:#fff;border:0;font-weight:800;padding:13px 22px;
 </style>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "LocalBusiness", "name": "Arlington Water Heater Repair & Plumbing", "telephone": "+18178738514", "description": "Water Heater Repair & Plumber services in Arlington, TX by Arlington Water Heater Repair & Plumbing. Call (817) 873-8514 \u2014 915 E Randol Mill Rd, Arlington, TX 76011.", "address": {"@type": "PostalAddress", "streetAddress": "915 E Randol Mill Rd", "addressLocality": "Arlington", "addressRegion": "TX", "postalCode": "76011", "addressCountry": "US"}, "areaServed": "all of Arlington, TX \u2014 Downtown, North and South Arlington \u2014 and nearby Grand Prairie and Mansfield"}</script>
 </head><body><header><div class="wrap topbar">
-<div class="logo">Arlington Water Heater Repair &amp; Plumbing<small>Water Heater &amp; Plumbing Service · Arlington, TX</small></div>
+<div class="logo"><div class="mark">AW</div><div class="nm">Arlington Water Heater Repair &amp; Plumbing<small>Water Heater &amp; Plumbing Service · Arlington, TX</small></div></div>
 <a class="callbtn" href="tel:+18178738514">Call (817) 873-8514</a></div>
 <nav><div class="wrap"><a href="index.html" class="">Home</a><a href="services.html" class="active">Services</a><a href="contact.html" class="">Contact</a></div></nav></header>
 <section><div class="wrap"><h2>Our Services in Arlington, Texas</h2>
