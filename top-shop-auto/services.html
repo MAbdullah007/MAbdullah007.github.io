@@ -13,11 +13,12 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;colo
 a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
 header{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20;box-shadow:0 1px 6px rgba(0,0,0,.05)}
-.topbar{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:10px 0}
+.topbar{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:8px 0;flex-wrap:nowrap}
 .logo{display:flex;gap:11px;align-items:center;min-width:0}
-.mark{width:44px;height:44px;border-radius:12px;background:#b91c1c;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex:none;letter-spacing:.02em}
-.logo .nm{font-size:1rem;font-weight:800;line-height:1.2;color:#111827}
-.logo small{display:block;font-size:.78rem;font-weight:500;color:#6b7280}
+.mark{width:40px;height:40px;border-radius:10px;background:#b91c1c;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex:none;letter-spacing:.02em}
+.logo .nm{font-size:.95rem;font-weight:800;line-height:1.2;color:#111827}
+.logo small{display:block;font-size:.73rem;font-weight:500;color:#6b7280}
+.callbtn-m{display:none}
 .callbtn{background:#b91c1c;color:#fff;text-decoration:none;font-weight:700;padding:9px 15px;border-radius:999px;white-space:nowrap;font-size:.92rem;flex:none}
 nav{background:#f9fafb;border-top:1px solid #f3f4f6}
 nav .wrap{display:flex;gap:24px;padding-top:8px;padding-bottom:8px;overflow-x:auto}
@@ -68,12 +69,15 @@ button{background:#b91c1c;color:#fff;border:0;font-weight:800;padding:13px 22px;
 .ctaband .btn{margin-top:14px}
 .callbar{display:none}
 @media(max-width:640px){.callbar{display:block;position:fixed;left:0;right:0;bottom:0;background:#b91c1c;color:#fff;text-align:center;font-weight:800;padding:15px;text-decoration:none;z-index:30;box-shadow:0 -2px 10px rgba(0,0,0,.2)}body{padding-bottom:52px}}
-@media(max-width:640px){.hero h1{font-size:1.55rem}.topbar{flex-direction:column;align-items:flex-start}}
+@media(max-width:640px){.hero h1{font-size:1.55rem}
+.callbtn{display:none}
+.callbtn-m{display:flex;width:42px;height:42px;border-radius:50%;background:#b91c1c;align-items:center;justify-content:center;flex:none}
+.logo .nm{font-size:.88rem;line-height:1.15}}
 </style>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "LocalBusiness", "name": "The Top Shop Automotive Repair", "telephone": "+16825877295", "description": "Auto Repair services in Fort Worth, TX by The Top Shop Automotive Repair. Call (682) 587-7295 \u2014 205 Commerce St, Fort Worth, TX 76102.", "address": {"@type": "PostalAddress", "streetAddress": "205 Commerce St", "addressLocality": "Fort Worth", "addressRegion": "TX", "postalCode": "76102", "addressCountry": "US"}, "areaServed": "Downtown Fort Worth, the Stockyards, the Near Southside and all of Fort Worth", "openingHoursSpecification": [{"@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "opens": "08:00", "closes": "17:00"}, {"@type": "OpeningHoursSpecification", "dayOfWeek": ["Saturday", "Sunday"], "opens": "09:00", "closes": "16:00"}]}</script>
 </head><body><header><div class="wrap topbar">
 <div class="logo"><div class="mark">TS</div><div class="nm">The Top Shop Automotive Repair<small>Auto Repair Shop · Fort Worth, TX</small></div></div>
-<a class="callbtn" href="tel:+16825877295">Call (682) 587-7295</a></div>
+<a class="callbtn" href="tel:+16825877295">Call (682) 587-7295</a><a class="callbtn-m" href="tel:+16825877295" aria-label="Call (682) 587-7295"><svg width="21" height="21" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></a></div>
 <nav><div class="wrap"><a href="index.html" class="">Home</a><a href="services.html" class="active">Services</a><a href="contact.html" class="">Contact</a></div></nav></header>
 <section><div class="wrap"><h2>Our Services in Fort Worth, Texas</h2>
 <p style="max-width:680px;margin-bottom:20px">The Top Shop Automotive Repair is a downtown Fort Worth auto repair shop, open seven days a week. Call or stop by for general auto repair and honest help with your vehicle.</p>
