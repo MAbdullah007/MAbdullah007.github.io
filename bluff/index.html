@@ -536,12 +536,25 @@ const settings = Object.assign({ sound: true, volume: 0.7, name: '', server: '',
 function saveSettings(){ localStorage.setItem('bluff-settings', JSON.stringify(settings)); }
 
 /* ================= sound (synthesised, no audio files) ================= */
-let audioCtx = null;
+let audioCtx = null, masterOut = null, noiseBuf = null;
 function ac(){
-  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+    if (audioCtx) {
+      // Master chain: gain + compressor, so layered sounds stay loud, not clipped.
+      const comp = audioCtx.createDynamicsCompressor();
+      masterOut = audioCtx.createGain(); masterOut.gain.value = 0.95;
+      masterOut.connect(comp); comp.connect(audioCtx.destination);
+      noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+  }
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
+// Phones keep audio locked until a real tap — unlock/resume on any touch.
+document.addEventListener('pointerdown', () => { ac(); }, { passive: true });
 function tone(freq, dur, type, vol, when, slideTo){
   if (!settings.sound) return;
   const ctx = ac(); if (!ctx) return;
@@ -552,21 +565,61 @@ function tone(freq, dur, type, vol, when, slideTo){
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime((vol||0.2) * settings.volume, t0 + 0.015);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  o.connect(g).connect(masterOut || ctx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+// Filtered white noise — the base of the realistic effects (claps, laugh
+// breath, card swishes, fire). Synthesised live, no audio files needed.
+function noise(dur, type, f0, f1, vol, when, q){
+  if (!settings.sound) return;
+  const ctx = ac(); if (!ctx || !noiseBuf) return;
+  const t0 = ctx.currentTime + (when || 0);
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const fl = ctx.createBiquadFilter(); fl.type = type || 'bandpass'; fl.Q.value = q || 0.9;
+  fl.frequency.setValueAtTime(f0 || 1000, t0);
+  if (f1) fl.frequency.exponentialRampToValueAtTime(Math.max(f1, 40), t0 + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime((vol || 0.3) * settings.volume, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(fl); fl.connect(g); g.connect(masterOut || ctx.destination);
+  src.start(t0); src.stop(t0 + dur + 0.05);
 }
 const sfx = {
-  place(){ tone(340, .09, 'triangle', .25, 0, 190); },
-  select(){ tone(620, .05, 'sine', .1); },
-  check(){ tone(210, .14, 'square', .16); tone(210, .14, 'square', .16, .18); },
-  good(){ tone(520, .1, 'sine', .18); tone(660, .1, 'sine', .18, .09); tone(790, .16, 'sine', .18, .18); },
-  bad(){ tone(300, .16, 'sawtooth', .12, 0, 170); tone(190, .22, 'sawtooth', .12, .14, 120); },
-  turn(){ tone(880, .08, 'sine', .12); },
-  burn(){ tone(160, .3, 'sawtooth', .1, 0, 720); },
-  win(){ [523,659,784,1046].forEach((f,i)=>tone(f,.16,'triangle',.2,i*.11)); },
-  lose(){ [440,392,330,262].forEach((f,i)=>tone(f,.16,'triangle',.16,i*.11)); },
-  join(){ tone(520, .07, 'sine', .12); tone(760, .09, 'sine', .12, .07); },
-  react(){ if (!settings.reactSound) return; tone(700, .06, 'sine', .12, 0, 980); },
+  place(){ noise(.14, 'bandpass', 950, 480, .5); tone(300, .12, 'triangle', .4, 0, 170); },
+  select(){ tone(680, .07, 'square', .22); },
+  check(){ tone(196, .16, 'square', .3); tone(196, .16, 'square', .3, .2); },
+  good(){ [523,659,784].forEach((f,i)=>tone(f,.14,'triangle',.35,i*.08)); },
+  bad(){ tone(280, .2, 'sawtooth', .3, 0, 150); tone(170, .3, 'sawtooth', .3, .16, 95); noise(.25, 'lowpass', 500, 200, .25, .05); },
+  turn(){ tone(880, .1, 'sine', .32); tone(1318, .14, 'sine', .3, .09); },
+  burn(){ noise(.5, 'lowpass', 900, 200, .5); tone(150, .35, 'sawtooth', .22, 0, 700); },
+  win(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,.2,'triangle',.38,i*.11)); noise(.5, 'highpass', 4200, 6400, .12, .2); },
+  lose(){ [440,392,330,262].forEach((f,i)=>tone(f,.2,'triangle',.3,i*.12)); },
+  join(){ tone(523, .09, 'sine', .32); tone(784, .12, 'sine', .32, .08); },
+  react(){ if (!settings.reactSound) return; tone(700, .07, 'sine', .3, 0, 990); },
+  test(){ [523,659,784].forEach((f,i)=>tone(f,.13,'triangle',.35,i*.09)); },
 };
+/* Reaction sounds — each phrase/emoji gets a fitting, realistic-style effect
+   (laugh, claps, gasp, whoosh...), all synthesised: tones + filtered noise. */
+const rsfx = {
+  laugh(){ [0,.13,.26,.39].forEach((w,i)=>{ const f = 168 - i*13; tone(f, .1, 'sawtooth', .3, w, f*.8); noise(.09, 'bandpass', 820, 600, .2, w, 1.2); }); },
+  clap(){ [0,.09,.18].forEach(w=>noise(.05, 'bandpass', 1350, 1100, .55, w, 1.1)); noise(.16, 'bandpass', 900, 700, .25, .27, 1); },
+  gasp(){ noise(.22, 'highpass', 1200, 2600, .4); tone(620, .22, 'sine', .22, 0, 190); },
+  whoosh(){ noise(.3, 'bandpass', 400, 2400, .45); },
+  fire(){ noise(.55, 'lowpass', 700, 1900, .4); noise(.4, 'bandpass', 2100, 900, .18, .08); },
+  sting(){ tone(196, .18, 'square', .3); tone(185, .32, 'square', .3, .18); },
+  hmm(){ tone(175, .22, 'sine', .34, 0, 163); tone(150, .3, 'sine', .34, .26, 138); },
+  whistle(){ tone(950, .32, 'sine', .3, 0, 1750); },
+  cheer(){ [392,523,659].forEach((f,i)=>tone(f,.11,'triangle',.36,i*.07)); },
+  taunt(){ tone(330, .12, 'triangle', .34); tone(440, .2, 'triangle', .34, .12); },
+  fanfare(){ [523,659,784,1046].forEach((f,i)=>tone(f,.17,'triangle',.38,i*.1)); },
+};
+const PHRASE_SOUND = ['cheer','clap','whoosh','gasp','whoosh','laugh','gasp','fire','clap','sting','fanfare','taunt'];
+const EMOJI_SOUND = ['laugh','fire','sting','whistle','hmm','clap','gasp','fanfare'];
+function playRxnSound(kind, i){
+  if (!settings.sound || !settings.reactSound) return;
+  const name = (kind === 'emoji' ? EMOJI_SOUND : PHRASE_SOUND)[i];
+  if (name && rsfx[name]) rsfx[name](); else sfx.react();
+}
 function refreshSoundButtons(){
   $('soundBtnHome').textContent = 'Sound: ' + (settings.sound ? 'On' : 'Off');
   $('soundBtnGame').style.opacity = settings.sound ? '1' : '.4';
@@ -652,21 +705,21 @@ function botBanter(last, v){
   if (mode !== 'bots' || !v) return;
   const bots = v.players.filter(p => p.isBot);
   if (!bots.length) return;
-  let speaker = null, text = null;
+  let speaker = null, text = null, snd = null;
   if (last.type === 'challenge' && last.honest === false) {
     if (Math.random() > 0.6) return;
     const others = bots.filter(p => p.idx !== last.against);
     speaker = (others.length ? others : bots)[Math.floor(Math.random() * (others.length ? others.length : bots.length))];
-    text = 'Pakray gaye! 😂';
+    text = 'Pakray gaye! 😂'; snd = 'gasp';
   } else if (last.type === 'challenge' && last.honest === true) {
     if (Math.random() > 0.35) return;
     speaker = bots.find(p => p.idx === last.against);
-    text = 'Kya chaal hai!';
+    text = 'Kya chaal hai!'; snd = 'whoosh';
   } else if (last.type === 'win') {
-    if (v.winner !== 0 && v.players[v.winner] && v.players[v.winner].isBot) { speaker = v.players[v.winner]; text = 'Jeet gaye bhai!'; }
-    else { if (Math.random() > 0.7) return; speaker = bots[Math.floor(Math.random() * bots.length)]; text = 'Kamaal kar diya!'; }
+    if (v.winner !== 0 && v.players[v.winner] && v.players[v.winner].isBot) { speaker = v.players[v.winner]; text = 'Jeet gaye bhai!'; snd = 'fanfare'; }
+    else { if (Math.random() > 0.7) return; speaker = bots[Math.floor(Math.random() * bots.length)]; text = 'Kamaal kar diya!'; snd = 'clap'; }
   }
-  if (speaker && text) setTimeout(() => { if (mode === 'bots' && view) showBubble(speaker.idx, text); }, 900);
+  if (speaker && text) setTimeout(() => { if (mode === 'bots' && view) { showBubble(speaker.idx, text); if (settings.reactSound && rsfx[snd]) rsfx[snd](); } }, 900);
 }
 function soundCue(v){
   const last = v.log[v.log.length - 1];
@@ -712,7 +765,7 @@ function sendReaction(kind, i){
   setTimeout(() => panel.classList.remove('cool'), 2500);
   ac();
   showBubble(myIdx(), kind === 'emoji' ? REACTION_EMOJIS[i] : PHRASES[i]);
-  sfx.react();
+  playRxnSound(kind, i);
   if (mode === 'online') onlineSend({ type: 'reaction', kind, i });
   panel.classList.add('hidden'); // sheet closes itself once you have reacted
 }
@@ -725,7 +778,7 @@ function buildReactionPanel(){
     '<button class="rxnChip" id="rxnSoundChip" type="button"></button>';
   $('rxnClose').addEventListener('click', () => panel.classList.add('hidden'));
   panel.querySelectorAll('.rxnChip[data-kind]').forEach(b => b.addEventListener('click', () => sendReaction(b.dataset.kind, Number(b.dataset.i))));
-  $('rxnSoundChip').addEventListener('click', () => { settings.reactSound = !settings.reactSound; saveSettings(); paintRxnSoundChip(); if (settings.reactSound) sfx.react(); });
+  $('rxnSoundChip').addEventListener('click', () => { settings.reactSound = !settings.reactSound; saveSettings(); paintRxnSoundChip(); if (settings.reactSound) rsfx.laugh(); });
   paintRxnSoundChip();
 }
 function paintRxnSoundChip(){ const c = $('rxnSoundChip'); if (c) c.textContent = settings.reactSound ? '🔊 Reaction sounds on' : '🔇 Reaction sounds off'; }
@@ -1074,7 +1127,7 @@ function onServerMessage(msg){
   if (msg.type === 'reaction') {
     if (!$('gameWrap').classList.contains('hidden')) {
       const text = msg.kind === 'emoji' ? REACTION_EMOJIS[msg.i] : PHRASES[msg.i];
-      if (text) { showBubble(msg.idx, text); sfx.react(); }
+      if (text) { showBubble(msg.idx, text); playRxnSound(msg.kind, msg.i); }
     }
     return;
   }
@@ -1183,7 +1236,7 @@ $('howBtn').addEventListener('click', () => $('howModal').classList.remove('hidd
 $('helpBtnGame').addEventListener('click', () => $('howModal').classList.remove('hidden'));
 $('closeHowBtn').addEventListener('click', () => $('howModal').classList.add('hidden'));
 $('howModal').addEventListener('click', (e) => { if (e.target === $('howModal')) $('howModal').classList.add('hidden'); });
-function toggleSound(){ settings.sound = !settings.sound; saveSettings(); refreshSoundButtons(); if (settings.sound) sfx.select(); }
+function toggleSound(){ settings.sound = !settings.sound; saveSettings(); refreshSoundButtons(); if (settings.sound) sfx.test(); }
 $('soundBtnHome').addEventListener('click', toggleSound);
 $('soundBtnGame').addEventListener('click', toggleSound);
 $('waitCancelBtn').addEventListener('click', () => { hideWait(); try { online.ws && online.ws.close(); } catch (e) {} if (mode === 'online') { mode = null; showScreen('home'); } });
