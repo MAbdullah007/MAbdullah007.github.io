@@ -309,6 +309,47 @@ async function main() {
       host.close(); r1.close(); r2.close();
     }
     {
+      // Fun layer: avatars sync, setAvatar, reaction relay + cooldown + whitelist.
+      const H = new Client('H'); await H.connect();
+      const G1 = new Client('G1'); await G1.connect();
+      const G2 = new Client('G2'); await G2.connect();
+      H.send({ type: 'create', name: 'Host', avatar: '🦸' });
+      const jh2 = await H.waitFor(m => m.type === 'joined', 'H joined');
+      G1.send({ type: 'join', code: jh2.code, name: 'Guest1', avatar: '👩' });
+      await G1.waitFor(m => m.type === 'joined', 'G1 joined');
+      G2.send({ type: 'join', code: jh2.code, name: 'Guest2', avatar: 'not-an-avatar' });
+      await G2.waitFor(m => m.type === 'joined', 'G2 joined');
+      const lob = await H.waitFor(m => m.type === 'lobby' && m.players.length === 3, 'fun lobby of 3');
+      ok(lob.players[0].avatar === '🦸' && lob.players[1].avatar === '👩', 'chosen avatars appear in the lobby');
+      ok(lob.players[2].avatar === '🧑', 'invalid avatar falls back to the default');
+      G1.send({ type: 'setAvatar', avatar: '🥷' });
+      await H.waitFor(m => m.type === 'lobby' && m.players[1] && m.players[1].avatar === '🥷', 'setAvatar broadcast');
+      ok(true, 'setAvatar in the lobby updates everyone');
+      H.clearMsgs(); G1.clearMsgs(); G2.clearMsgs();
+      H.send({ type: 'reaction', kind: 'phrase', i: 3 });
+      const r1 = await G1.waitFor(m => m.type === 'reaction', 'G1 gets reaction', 4000);
+      ok(r1.idx === 0 && r1.kind === 'phrase' && r1.i === 3, 'reaction relayed to other players with sender index');
+      await G2.waitFor(m => m.type === 'reaction', 'G2 gets reaction', 4000);
+      await sleep(300);
+      ok(!H.msgs.some(m => m.type === 'reaction'), 'reaction is not echoed back to the sender');
+      H.clearMsgs(); G1.clearMsgs();
+      H.send({ type: 'reaction', kind: 'emoji', i: 0 });
+      await sleep(500);
+      ok(!G1.msgs.some(m => m.type === 'reaction'), 'second reaction inside the cooldown is dropped');
+      await sleep(2100);
+      G1.clearMsgs();
+      H.send({ type: 'reaction', kind: 'phrase', i: 99 });
+      await sleep(500);
+      ok(!G1.msgs.some(m => m.type === 'reaction'), 'out-of-range reaction index is dropped');
+      H.send({ type: 'reaction', kind: 'emoji', i: 1 });
+      const r2 = await G1.waitFor(m => m.type === 'reaction' && m.kind === 'emoji' && m.i === 1, 'emoji reaction', 4000);
+      ok(!!r2, 'emoji reaction relayed after the cooldown');
+      H.send({ type: 'start' });
+      const fv = (await H.waitFor(m => m.type === 'view', 'fun game view')).view;
+      ok(fv.players[0].avatar === '🦸' && fv.players[1].avatar === '🥷', 'avatars are present in game views');
+      H.close(); G1.close(); G2.close();
+    }
+    {
       // Many rooms at once: codes and internal IDs must never collide.
       const codes = new Set(), ids = new Set();
       const hosts = [];

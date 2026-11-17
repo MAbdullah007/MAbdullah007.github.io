@@ -50,6 +50,16 @@ const wss = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024 });
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const rooms = new Map();
 const BOT_NAMES = ['Zara', 'Omar', 'Felix', 'Priya', 'Boris', 'Luna'];
+/* Fun layer (display only — never touches game state): emoji avatars and
+   one-tap reactions. Clients send only an INDEX into these fixed lists,
+   so no arbitrary text or image can ever be injected. Keep the counts in
+   sync with the client (client/index.html: AVATARS / PHRASES / REACTION_EMOJIS). */
+const AVATARS = ['🧑', '👨', '👩', '🧕', '👳', '🧔', '😎', '🤠', '🥷', '🦸'];
+const BOT_AVATARS = ['🦊', '🐯', '🐼', '🐸', '🦁', '🐨'];
+const PHRASE_COUNT = 12;
+const REACTION_EMOJI_COUNT = 8;
+const REACTION_COOLDOWN_MS = 2000;
+function cleanAvatar(a) { return AVATARS.includes(a) ? a : '🧑'; }
 
 function newCode() {
   let code;
@@ -61,21 +71,23 @@ function cleanName(n) {
   const s = String(n || '').replace(/[<>&"']/g, '').trim().slice(0, 16);
   return s || 'Player';
 }
-function makeRoom(hostName, declarationMode) {
+function makeRoom(hostName, declarationMode, avatar) {
   const room = {
     id: crypto.randomUUID(), // internal room ID (the code is only the shareable key)
     code: newCode(), seats: [], state: null, started: false,
     declarationMode: declarationMode === 'sequence' ? 'sequence' : 'free',
     hostSeat: 0, lastActivity: Date.now(), botTimer: null, turnTimer: null,
   };
-  room.seats.push(makeSeat(hostName, false));
+  room.seats.push(makeSeat(hostName, false, undefined, avatar));
   rooms.set(room.code, room);
   return room;
 }
-function makeSeat(name, isBot, difficulty) {
+function makeSeat(name, isBot, difficulty, avatar) {
   return {
     token: crypto.randomBytes(12).toString('hex'),
     name: cleanName(name), isBot: !!isBot, difficulty: difficulty || 'medium',
+    avatar: isBot ? BOT_AVATARS[Math.floor(Math.random() * BOT_AVATARS.length)] : cleanAvatar(avatar),
+    lastReactionAt: 0,
     ws: null, connected: false, seenActions: new Set(), actionOrder: [],
   };
 }
@@ -89,7 +101,7 @@ function lobbyPayload(room, forSeat) {
   return {
     type: 'lobby', code: room.code, youIdx: seatIdx(room, forSeat), youAreHost: seatIdx(room, forSeat) === room.hostSeat,
     declarationMode: room.declarationMode,
-    players: room.seats.map((s, i) => ({ name: s.name, isBot: s.isBot, difficulty: s.difficulty, connected: s.connected || s.isBot, isHost: i === room.hostSeat })),
+    players: room.seats.map((s, i) => ({ name: s.name, avatar: s.avatar, isBot: s.isBot, difficulty: s.difficulty, connected: s.connected || s.isBot, isHost: i === room.hostSeat })),
   };
 }
 function broadcastLobby(room) { for (const s of room.seats) if (!s.isBot) send(s, lobbyPayload(room, s)); }
@@ -98,7 +110,9 @@ function broadcastViews(room) {
   syncSeatFlags(room);
   for (const s of room.seats) {
     if (s.isBot) continue;
-    send(s, { type: 'view', view: E.publicView(room.state, seatIdx(room, s)) });
+    const v = E.publicView(room.state, seatIdx(room, s));
+    v.players.forEach((p, i) => { p.avatar = room.seats[i].avatar; }); // display-only field
+    send(s, { type: 'view', view: v });
   }
 }
 function syncSeatFlags(room) {
@@ -204,7 +218,7 @@ wss.on('connection', (ws) => {
       switch (m.type) {
         case 'create': {
           if (room) return sendError(seat || { ws }, 'Already in a room.');
-          room = makeRoom(m.name, m.declarationMode);
+          room = makeRoom(m.name, m.declarationMode, m.avatar);
           seat = room.seats[0];
           seat.ws = ws; seat.connected = true;
           send(seat, { type: 'joined', code: room.code, roomId: room.id, idx: 0, token: seat.token, isHost: true });
@@ -222,7 +236,7 @@ wss.on('connection', (ws) => {
           if (r.started) { ws.send(JSON.stringify({ type: 'error', message: 'That game has already started. Ask the host for a new room.' })); return; }
           if (r.seats.length >= 6) { ws.send(JSON.stringify({ type: 'error', message: 'That room is full (6 players max).' })); return; }
           room = r;
-          seat = makeSeat(m.name, false);
+          seat = makeSeat(m.name, false, undefined, m.avatar);
           room.seats.push(seat);
           attach(room, seat, true);
           break;
@@ -233,6 +247,28 @@ wss.on('connection', (ws) => {
           const existing = r.seats.find(s => !s.isBot && s.token === m.token);
           if (!existing) { ws.send(JSON.stringify({ type: 'error', message: 'Could not find your seat in that room.' })); return; }
           attach(r, existing);
+          break;
+        }
+        case 'setAvatar': {
+          // Lobby-only cosmetic change; validated against the fixed list.
+          if (!room || !seat || room.started) return;
+          seat.avatar = cleanAvatar(m.avatar);
+          broadcastLobby(room);
+          break;
+        }
+        case 'reaction': {
+          // One-tap fun reaction: an index into the fixed phrase/emoji
+          // lists, relayed to the OTHER seats only. Per-seat cooldown
+          // stops spam. Carries no game information whatsoever.
+          if (!room || !seat) return;
+          const kind = m.kind === 'emoji' ? 'emoji' : 'phrase';
+          const limit = kind === 'emoji' ? REACTION_EMOJI_COUNT : PHRASE_COUNT;
+          if (!Number.isInteger(m.i) || m.i < 0 || m.i >= limit) return;
+          const now = Date.now();
+          if (now - seat.lastReactionAt < REACTION_COOLDOWN_MS) return;
+          seat.lastReactionAt = now;
+          const idx = seatIdx(room, seat);
+          for (const s of room.seats) if (!s.isBot && s !== seat) send(s, { type: 'reaction', idx, kind, i: m.i });
           break;
         }
         case 'addBot': {

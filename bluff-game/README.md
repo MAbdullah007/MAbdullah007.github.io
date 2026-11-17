@@ -134,6 +134,25 @@ provably impossible claims; no bot ever sees another player's hand.
 - Room lifecycle: Waiting → In Progress → Completed; abandoned rooms are
   swept automatically. `GET /healthz` reports server health for hosts.
 
+## Fun layer (display only — never affects the game)
+
+- **Avatars:** pick one of 10 standard Unicode emoji faces on the home
+  screen or in the lobby; it appears beside your name in the lobby and at
+  the table, synchronised by the server (validated against a fixed list).
+  Bots get animal emoji avatars. No uploads, no photos, no external service.
+- **Reactions:** one-tap Roman Urdu phrases ("Oye hoye!", "Pakray gaye!",
+  "Wah ustad!"…) and emojis, shown as a speech bubble by your avatar for
+  ~3 seconds. Online, the server relays only an index into the fixed list
+  (no free text), with a 2-second per-player cooldown. Bots in bot games
+  react to caught bluffs and wins.
+- **Feedback & sound:** CSS effects (pile shake on a caught bluff, green
+  glow on an honest check, burn flash, winner emoji burst) and Web Audio
+  synthesised tones — card play, challenge, win/lose, room join, reaction
+  pop. Sound toggle on the home screen and in game; reaction sounds have
+  their own toggle inside the reaction panel. Audio only ever starts
+  after a user tap (browser autoplay rules), and any audio failure is
+  swallowed — the game never depends on it.
+
 ## Project layout
 
 ```
@@ -152,6 +171,9 @@ render.yaml             One-click Render blueprint for the public server
 
 No third-party assets are used. Cards are drawn with HTML/CSS and suit
 glyphs (♠ ♥ ♦ ♣); sounds are synthesised with the Web Audio API; icons are
-generated locally. The only runtime dependency is
+generated locally. Avatars and reaction emojis are standard Unicode
+characters rendered by the device's own emoji font (no image files, no
+downloads); the reaction phrases are original text written for this game.
+The only runtime dependency is
 [`ws`](https://github.com/websockets/ws) (MIT) for the server. The game code
 itself is original.

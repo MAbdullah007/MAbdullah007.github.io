@@ -75,12 +75,23 @@ try:
         check("declare" in how.lower() and "Burn the pile" in how, "How to Play explains declarations and burn/add")
         page.click("#closeHowBtn")
         page.fill("#nameInput", "Tester")
+        check(page.locator("#avatarPick button").count() == 10, "avatar picker shows 10 avatars")
+        page.click("#avatarPick button[data-a='🦸']")
+        saved_avatar = page.evaluate("JSON.parse(localStorage.getItem('bluff-settings')).avatar")
+        check(saved_avatar == "🦸", "chosen avatar is saved")
         page.click("#playBotsBtn")
         page.wait_for_selector("#gameWrap:not(.hidden)")
         page.wait_for_selector(".pcard")
         n_cards = page.locator(".pcard").count()
         check(10 <= n_cards <= 26, f"hand dealt ({n_cards} cards in a 3-player game)")
         check(page.locator(".opp").count() == 2, "two bot opponents shown")
+        check(page.locator(".opp .avatar .face").count() == 2, "bot opponents show emoji avatars")
+        page.click("#rxnToggle")
+        page.wait_for_selector("#rxnPanel:not(.hidden)")
+        check(page.locator("#rxnPanel .rxnChip[data-kind='phrase']").count() == 12, "reaction panel lists 12 phrases")
+        page.click("#rxnPanel .rxnChip[data-kind='phrase'][data-i='3']")
+        page.wait_for_function("document.querySelector('#myBubble').classList.contains('show')")
+        check(page.inner_text("#myBubble") == "Pakray gaye!", "my reaction bubble shows the tapped phrase")
         page.screenshot(path=os.path.join(shots, "1-table-start.png"))
 
         won = False
@@ -156,6 +167,7 @@ try:
         B.on("pageerror", lambda e: errs2.append("B: " + str(e)))
         A.goto(f"http://127.0.0.1:{PORT}/", wait_until="networkidle")
         A.fill("#nameInput", "HostA")
+        A.click("#avatarPick button[data-a='🦸']")
         A.click("#createRoomBtn")
         A.wait_for_selector("#lobbyScreen:not(.hidden)")
         code = A.inner_text("#lobbyCode").strip()
@@ -172,6 +184,8 @@ try:
         A.wait_for_function("document.querySelectorAll('#lobbyPlayers .prow').length === 2")
         B.wait_for_function("document.querySelectorAll('#lobbyPlayers .prow').length === 2")
         check(True, "both sessions see the same 2-player lobby")
+        faces_b = B.eval_on_selector_all("#lobbyPlayers .prow .avatar .face", "els => els.map(e => e.textContent)")
+        check("🦸" in faces_b, "guest sees the host's chosen avatar in the lobby")
         status2 = A.inner_text("#lobbyStatus")
         check("at least one more player" in status2, "lobby shows 'waiting for at least one more player' with 2 players")
         check(not A.locator("#startGameBtn").is_enabled(), "start still disabled with 2 players (minimum is 3)")
@@ -190,6 +204,12 @@ try:
         check(a_cards.isdisjoint(b_cards), "the two hands are different (no shared/duplicated cards)")
         b_dom = B.eval_on_selector_all("[data-card]", "els => els.map(e => e.dataset.card)")
         check(not any(c in b_dom for c in a_cards), "A's private cards never appear in B's page")
+        # Reaction sync: host taps a phrase; it must appear by his avatar on B's screen.
+        A.click("#rxnToggle")
+        A.click("#rxnPanel .rxnChip[data-kind='phrase'][data-i='0']")
+        B.wait_for_function("!!document.querySelector('.opp .bubble.show')", timeout=8000)
+        b_bubble = B.eval_on_selector(".opp .bubble.show", "e => e.textContent")
+        check(b_bubble == "Oye hoye!", "host's reaction appears by his avatar on the guest's screen")
         # Drive until a public play lands; both screens must agree.
         synced = False
         for step in range(160):

@@ -175,7 +175,7 @@
     background: linear-gradient(180deg, rgba(5,26,17,0) 0%, rgba(5,26,17,.96) 22%);
     padding: 18px 10px calc(10px + env(safe-area-inset-bottom));
   }
-  .mybar-inner { max-width: 640px; margin: 0 auto; }
+  .mybar-inner { max-width: 640px; margin: 0 auto; position: relative; }
   .turn-banner { text-align: center; font-weight: 800; font-size: 15px; margin-bottom: 8px; min-height: 20px; }
   .turn-banner.mine { color: #ffe9a8; }
   .hand { min-height: 96px; overflow-x: auto; scrollbar-width: none; }
@@ -238,6 +238,33 @@
   @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
   .pulse { animation: pulse 1.1s ease-in-out infinite; }
   .footer-note { text-align: center; font-size: 12px; opacity: .55; margin-top: 22px; line-height: 1.5; }
+  /* ---- fun layer: avatar picker, reaction bubbles, event effects ---- */
+  .avatarPick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .avatarPick button { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); font-size: 22px; cursor: pointer; padding: 0; line-height: 1; }
+  .avatarPick button.on { border-color: #f2c14e; background: rgba(242,193,78,.18); box-shadow: 0 0 0 2px rgba(242,193,78,.35); }
+  .avatar .face { font-size: 23px; line-height: 1; }
+  .opp .bubble, .bubble.mine {
+    position: absolute; left: 50%; transform: translateX(-50%) scale(.7);
+    background: #fff; color: #17301b; font-size: 12.5px; font-weight: 800; padding: 5px 10px; border-radius: 14px;
+    white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; z-index: 6;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35); max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .opp .bubble { top: calc(100% + 3px); }
+  .bubble.mine { top: -16px; }
+  .opp .bubble.show, .bubble.mine.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  .rxnWrap { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+  .rxnPanel { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .rxnPanel.hidden { display: none; }
+  .rxnChip { border: 1.5px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #fff; border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .rxnChip:active { transform: scale(.95); }
+  .rxnPanel.cool .rxnChip { opacity: .35; pointer-events: none; }
+  @keyframes shakeX { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+  .pile-wrap.shake { animation: shakeX .45s ease; }
+  .pile-wrap.glow { box-shadow: 0 0 0 3px rgba(87,217,119,.7), 0 0 22px rgba(87,217,119,.85); border-radius: 10px; }
+  .pile-wrap.burnflash { box-shadow: 0 0 0 3px rgba(255,140,60,.85), 0 0 26px rgba(255,140,60,.95); border-radius: 10px; }
+  .burst { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 6; }
+  .burst span { position: absolute; bottom: 36%; font-size: 24px; animation: floatUp 1.5s ease-out forwards; opacity: 0; }
+  @keyframes floatUp { 0% { transform: translateY(0) scale(.6) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-150px) scale(1.15) rotate(24deg); opacity: 0; } }
   @media (min-width: 560px) {
     .pcard { width: 60px; height: 86px; margin-left: -14px; }
     .pcard .r { font-size: 17px; } .pcard .big { font-size: 28px; }
@@ -257,6 +284,9 @@
   <div class="card-panel">
     <label class="lbl" for="nameInput" style="margin-top:0">Your name</label>
     <input id="nameInput" class="field" maxlength="16" placeholder="e.g. Alex" autocomplete="off">
+    <label class="lbl">Pick your avatar</label>
+    <div class="avatarPick" id="avatarPick"></div>
+    <p class="sub" style="margin-top:8px">Friends see this beside your name in the lobby and at the table.</p>
   </div>
 
   <div class="card-panel">
@@ -325,6 +355,8 @@
     <h2>Players</h2>
     <p class="sub" id="lobbyStatus" style="margin-top:2px"></p>
     <div class="playerlist" id="lobbyPlayers"></div>
+    <label class="lbl">Your avatar</label>
+    <div class="avatarPick" id="avatarPickLobby"></div>
     <div id="hostControls">
       <label class="lbl">Add a bot to fill a seat</label>
       <div class="row">
@@ -366,6 +398,12 @@
   </div>
   <div class="mybar">
     <div class="mybar-inner">
+      <div class="bubble mine" id="myBubble"></div>
+      <div class="rxnWrap">
+        <button class="btn ghost small" id="rxnToggle" style="flex:0 0 auto">😀 Reactions</button>
+        <span class="sub">Tap a phrase — friends see it by your avatar</span>
+      </div>
+      <div class="rxnPanel hidden" id="rxnPanel"></div>
       <div class="turn-banner" id="turnBanner"></div>
       <div class="decl hidden" id="declPanel">
         <div class="selInfo" id="selInfo"></div>
@@ -456,6 +494,14 @@ const RANKS = BluffEngine.RANKS;
 const RANK_NAMES = ['Aces','2s','3s','4s','5s','6s','7s','8s','9s','10s','Jacks','Queens','Kings'];
 const AVATAR_COLORS = ['#f2c14e','#7fd08c','#6ec1ff','#ff9d7a','#d39df2','#7adfd2'];
 const BOT_NAMES = ['Zara','Omar','Felix','Priya','Boris','Luna'];
+/* Fun layer (display only): emoji avatars + one-tap Roman Urdu reactions.
+   Fixed lists — the server validates indices against its own copies, so
+   nothing arbitrary can be sent. Emojis are standard Unicode (no assets). */
+const AVATARS = ['🧑','👨','👩','🧕','👳','🧔','😎','🤠','🥷','🦸'];
+const BOT_AVATARS = ['🦊','🐯','🐼','🐸','🦁','🐨'];
+const PHRASES = ['Oye hoye!','Wah ustad!','Kya chaal hai!','Pakray gaye!','Bari tez chaal hai!','Hahaha, kya scene hai!','Bhai, yaqeen nahi aa raha!','Full scene on!','Kamaal kar diya!','Aaj toh tum gaye!','Jeet gaye bhai!','Agli baari meri!'];
+const REACTION_EMOJIS = ['😂','🔥','👀','😎','🤔','👏','😱','🎉'];
+function avatarFace(p){ return p && p.avatar ? '<span class="face">' + p.avatar + '</span>' : esc(initials(p ? p.name : '?')); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function initials(name){ return name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?'; }
 function rankLabel(rank){ return RANKS[rank]; }
@@ -475,7 +521,7 @@ function showWait(title, text, cancelable){
 function hideWait(){ $('waitModal').classList.add('hidden'); }
 
 /* ================= settings ================= */
-const settings = Object.assign({ sound: true, volume: 0.7, name: '', server: '', declMode: 'free' },
+const settings = Object.assign({ sound: true, volume: 0.7, name: '', server: '', declMode: 'free', avatar: '🧑', reactSound: true },
   JSON.parse(localStorage.getItem('bluff-settings') || '{}'));
 function saveSettings(){ localStorage.setItem('bluff-settings', JSON.stringify(settings)); }
 
@@ -508,6 +554,8 @@ const sfx = {
   burn(){ tone(160, .3, 'sawtooth', .1, 0, 720); },
   win(){ [523,659,784,1046].forEach((f,i)=>tone(f,.16,'triangle',.2,i*.11)); },
   lose(){ [440,392,330,262].forEach((f,i)=>tone(f,.16,'triangle',.16,i*.11)); },
+  join(){ tone(520, .07, 'sine', .12); tone(760, .09, 'sine', .12, .07); },
+  react(){ if (!settings.reactSound) return; tone(700, .06, 'sine', .12, 0, 980); },
 };
 function refreshSoundButtons(){
   $('soundBtnHome').textContent = 'Sound: ' + (settings.sound ? 'On' : 'Off');
@@ -567,6 +615,49 @@ function eventText(ev, v){
     default: return '';
   }
 }
+function pileFx(cls){
+  const w = document.querySelector('#pileArea .pile-wrap');
+  if (!w) return;
+  w.classList.add(cls);
+  setTimeout(() => w.classList.remove(cls), 750);
+}
+function winBurst(){
+  const f = $('felt'); if (!f) return;
+  const b = document.createElement('div');
+  b.className = 'burst';
+  const em = ['🎉','🏆','✨','🎊','🥳'];
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement('span');
+    s.textContent = em[i % em.length];
+    s.style.left = (4 + Math.random() * 90) + '%';
+    s.style.animationDelay = (Math.random() * 0.35) + 's';
+    b.appendChild(s);
+  }
+  f.appendChild(b);
+  setTimeout(() => b.remove(), 2200);
+}
+/* In bot games the bots join the fun: a caught bluff or a win earns a
+   Roman Urdu reaction bubble from one of them. Pure decoration. */
+function botBanter(last, v){
+  if (mode !== 'bots' || !v) return;
+  const bots = v.players.filter(p => p.isBot);
+  if (!bots.length) return;
+  let speaker = null, text = null;
+  if (last.type === 'challenge' && last.honest === false) {
+    if (Math.random() > 0.6) return;
+    const others = bots.filter(p => p.idx !== last.against);
+    speaker = (others.length ? others : bots)[Math.floor(Math.random() * (others.length ? others.length : bots.length))];
+    text = 'Pakray gaye! 😂';
+  } else if (last.type === 'challenge' && last.honest === true) {
+    if (Math.random() > 0.35) return;
+    speaker = bots.find(p => p.idx === last.against);
+    text = 'Kya chaal hai!';
+  } else if (last.type === 'win') {
+    if (v.winner !== 0 && v.players[v.winner] && v.players[v.winner].isBot) { speaker = v.players[v.winner]; text = 'Jeet gaye bhai!'; }
+    else { if (Math.random() > 0.7) return; speaker = bots[Math.floor(Math.random() * bots.length)]; text = 'Kamaal kar diya!'; }
+  }
+  if (speaker && text) setTimeout(() => { if (mode === 'bots' && view) showBubble(speaker.idx, text); }, 900);
+}
 function soundCue(v){
   const last = v.log[v.log.length - 1];
   if (!last) return;
@@ -574,19 +665,72 @@ function soundCue(v){
   if (sig === lastEventSig) return;
   lastEventSig = sig;
   const me = myIdx();
-  if (last.type === 'challenge') { sfx.check(); setTimeout(() => (last.honest === (last.by !== me) ? sfx.good() : sfx.bad()), 200); }
-  else if (last.type === 'four-burn' || last.type === 'burn') sfx.burn();
-  else if (last.type === 'win') { v.winner === me ? sfx.win() : sfx.lose(); }
+  if (last.type === 'challenge') { sfx.check(); setTimeout(() => (last.honest === (last.by !== me) ? sfx.good() : sfx.bad()), 200); pileFx(last.honest ? 'glow' : 'shake'); botBanter(last, v); }
+  else if (last.type === 'four-burn' || last.type === 'burn') { sfx.burn(); pileFx('burnflash'); }
+  else if (last.type === 'win') { v.winner === me ? sfx.win() : sfx.lose(); winBurst(); botBanter(last, v); }
   else if (last.type === 'play' && last.by !== me) sfx.place();
   if (v.phase === 'play' && v.turn === me) sfx.turn();
   if (v.phase === 'respond' && v.responder === me) sfx.turn();
   if (v.phase === 'decide' && v.decisionFor === me) sfx.turn();
 }
 
+/* ================= reactions (display only, never touch game state) ================= */
+const activeBubbles = {}; // player idx -> { text, until }
+const bubbleTimers = {};
+function showBubble(idx, text){
+  activeBubbles[idx] = { text, until: Date.now() + 2800 };
+  paintBubble(idx);
+  clearTimeout(bubbleTimers[idx]);
+  bubbleTimers[idx] = setTimeout(() => { delete activeBubbles[idx]; paintBubble(idx); }, 2850);
+}
+function paintBubble(idx){
+  const b = activeBubbles[idx];
+  let el = null;
+  if (idx === myIdx()) el = $('myBubble');
+  else el = document.querySelector('.opp[data-idx="' + idx + '"] .bubble');
+  if (!el) return;
+  el.textContent = b ? b.text : '';
+  el.classList.toggle('show', !!b);
+}
+let rxnCooldownUntil = 0;
+function sendReaction(kind, i){
+  const now = Date.now();
+  if (now < rxnCooldownUntil) return; // simple anti-spam cooldown
+  rxnCooldownUntil = now + 2500;
+  const panel = $('rxnPanel');
+  panel.classList.add('cool');
+  setTimeout(() => panel.classList.remove('cool'), 2500);
+  ac();
+  showBubble(myIdx(), kind === 'emoji' ? REACTION_EMOJIS[i] : PHRASES[i]);
+  sfx.react();
+  if (mode === 'online') onlineSend({ type: 'reaction', kind, i });
+}
+function buildReactionPanel(){
+  const panel = $('rxnPanel');
+  panel.innerHTML =
+    PHRASES.map((p, i) => '<button class="rxnChip" data-kind="phrase" data-i="' + i + '">' + esc(p) + '</button>').join('') +
+    REACTION_EMOJIS.map((e, i) => '<button class="rxnChip" data-kind="emoji" data-i="' + i + '" style="font-size:16px">' + e + '</button>').join('') +
+    '<button class="rxnChip" id="rxnSoundChip" type="button"></button>';
+  panel.querySelectorAll('.rxnChip[data-kind]').forEach(b => b.addEventListener('click', () => sendReaction(b.dataset.kind, Number(b.dataset.i))));
+  $('rxnSoundChip').addEventListener('click', () => { settings.reactSound = !settings.reactSound; saveSettings(); paintRxnSoundChip(); if (settings.reactSound) sfx.react(); });
+  paintRxnSoundChip();
+}
+function paintRxnSoundChip(){ const c = $('rxnSoundChip'); if (c) c.textContent = settings.reactSound ? '🔊 Reaction sounds on' : '🔇 Reaction sounds off'; }
+function buildAvatarPick(el, onPick){
+  if (!el) return;
+  el.innerHTML = AVATARS.map(a => '<button type="button" data-a="' + a + '" class="' + (settings.avatar === a ? 'on' : '') + '">' + a + '</button>').join('');
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    settings.avatar = b.dataset.a; saveSettings(); ac(); sfx.select();
+    document.querySelectorAll('.avatarPick button').forEach(x => x.classList.toggle('on', x.dataset.a === settings.avatar));
+    if (onPick) onPick(settings.avatar);
+  }));
+}
+
 /* ================= game rendering (shared by both modes) ================= */
 function renderGame(v){
   view = v;
   const me = myIdx();
+  if (mode === 'bots' && localAvatars) v.players.forEach((p, i) => { if (!p.avatar) p.avatar = localAvatars[i]; });
   soundCue(v);
   // opponents in table order starting after me, seated around the table
   const oppHtml = [];
@@ -594,15 +738,17 @@ function renderGame(v){
     const p = v.players[(me + k) % v.players.length];
     const active = (v.phase === 'play' && v.turn === p.idx) || (v.phase === 'decide' && v.decisionFor === p.idx);
     const responding = v.phase === 'respond' && v.responder === p.idx;
-    oppHtml.push('<div class="opp slot' + (k - 1) + (active ? ' active' : '') + (responding ? ' responding' : '') + '">' +
+    oppHtml.push('<div class="opp slot' + (k - 1) + (active ? ' active' : '') + (responding ? ' responding' : '') + '" data-idx="' + p.idx + '">' +
       '<span class="dot' + (p.connected ? '' : ' off') + '"></span>' +
-      '<div class="avatar" style="background:' + AVATAR_COLORS[p.idx % AVATAR_COLORS.length] + '">' + esc(initials(p.name)) + '</div>' +
+      '<div class="avatar" style="background:' + AVATAR_COLORS[p.idx % AVATAR_COLORS.length] + '">' + avatarFace(p) + '</div>' +
+      '<div class="bubble"></div>' +
       '<div class="nm">' + esc(p.name) + '</div>' +
       '<div class="ct">' + p.count + ' card' + (p.count === 1 ? '' : 's') + (p.isBot ? ' · ' + esc(p.difficulty) : '') + '</div>' +
       '<div class="thinking">' + (active ? (v.phase === 'decide' ? 'burn or add…' : 'playing…') : responding ? 'deciding…' : '') + '</div></div>');
   }
   $('opponents').innerHTML = oppHtml.join('');
   $('opponents').className = 'opponents n' + oppHtml.length;
+  Object.keys(activeBubbles).forEach(i => paintBubble(Number(i)));
   $('felt').className = 'felt oc' + oppHtml.length;
   // pile
   if (v.pileSize === 0) {
@@ -748,7 +894,7 @@ function renderGame(v){
 function showWinner(){
   const v = view; if (!v || v.winner === null) return;
   const me = myIdx();
-  $('winnerName').textContent = v.players[v.winner].name + (v.winner === me ? ' — that’s you!' : '');
+  $('winnerName').textContent = (v.players[v.winner].avatar ? v.players[v.winner].avatar + ' ' : '') + v.players[v.winner].name + (v.winner === me ? ' — that’s you!' : '');
   $('winnerSub').textContent = v.winner === me ? 'You got rid of all your cards and the final play survived. Nicely bluffed!' : v.players[v.winner].name + ' emptied their hand and the final play survived.';
   const pa = $('playAgainBtn');
   if (mode === 'online' && !online.isHost) { pa.disabled = true; pa.textContent = 'Waiting for host to rematch…'; }
@@ -792,11 +938,14 @@ function doRespond(action){
 
 /* ================= bot mode ================= */
 let botCount = 2, botDiff = 'medium';
+let localAvatars = null; // bot mode: avatar per player index (display only)
 function startBotGame(){
   const name = ($('nameInput').value || '').trim() || 'You';
   settings.name = name; saveSettings();
   const defs = [{ name, isBot: false }];
   for (let i = 0; i < botCount; i++) defs.push({ name: BOT_NAMES[i % BOT_NAMES.length], isBot: true, difficulty: botDiff });
+  localAvatars = [settings.avatar];
+  for (let i = 0; i < botCount; i++) localAvatars.push(BOT_AVATARS[i % BOT_AVATARS.length]);
   local = { state: BluffEngine.newGame(defs, { declarationMode: settings.declMode || 'free' }) };
   mode = 'bots'; gameOverShown = false; lastEventSig = ''; selected.clear(); selectedRank = null; turnKey = '';
   $('roomChip').textContent = 'vs Bots · ' + botDiff + ' · ' + ((settings.declMode || 'free') === 'sequence' ? 'Sequence' : 'Free bluff');
@@ -906,8 +1055,16 @@ function connectOnline(then){
   };
   ws.onerror = () => { /* onclose handles it */ };
 }
+let lastLobbyCount = 0;
 function onServerMessage(msg){
   if (msg.type === 'error') { hideWait(); toast(msg.message || 'Something went wrong.', 3400); return; }
+  if (msg.type === 'reaction') {
+    if (!$('gameWrap').classList.contains('hidden')) {
+      const text = msg.kind === 'emoji' ? REACTION_EMOJIS[msg.i] : PHRASES[msg.i];
+      if (text) { showBubble(msg.idx, text); sfx.react(); }
+    }
+    return;
+  }
   if (msg.type === 'joined') {
     online.roomCode = msg.code; online.myIdx = msg.idx;
     online.playerToken = msg.token; online.isHost = msg.isHost;
@@ -915,6 +1072,8 @@ function onServerMessage(msg){
   }
   if (msg.type === 'lobby') {
     hideWait();
+    if (lastLobbyCount > 0 && msg.players.length > lastLobbyCount) sfx.join(); // someone new arrived
+    lastLobbyCount = msg.players.length;
     online.roomCode = msg.code; online.isHost = msg.youAreHost;
     if (msg.youIdx !== undefined) online.myIdx = msg.youIdx;
     renderLobby(msg);
@@ -936,7 +1095,7 @@ function onServerMessage(msg){
 function renderLobby(msg){
   $('lobbyCode').textContent = msg.code;
   $('lobbyPlayers').innerHTML = msg.players.map((p, i) =>
-    '<div class="prow"><div class="avatar" style="background:' + AVATAR_COLORS[i % AVATAR_COLORS.length] + '">' + esc(initials(p.name)) + '</div>' +
+    '<div class="prow"><div class="avatar" style="background:' + AVATAR_COLORS[i % AVATAR_COLORS.length] + '">' + avatarFace(p) + '</div>' +
     '<span class="nm">' + esc(p.name) + '</span>' +
     (p.isHost ? '<span class="tag">HOST</span>' : '') + (p.isBot ? '<span class="tag">BOT · ' + esc(p.difficulty) + '</span>' : '') +
     '<span class="st">' + (p.connected ? 'ready' : 'away') + '</span></div>').join('');
@@ -961,18 +1120,19 @@ function createRoom(){
   // computed default, which would go stale and override better defaults.
   settings.name = name; settings.server = ($('serverInput').value || '').trim(); saveSettings();
   mode = 'online'; online.started = false; gameOverShown = false;
-  connectOnline(() => onlineSend({ type: 'create', name, declarationMode: settings.declMode || 'free' }));
+  connectOnline(() => onlineSend({ type: 'create', name, declarationMode: settings.declMode || 'free', avatar: settings.avatar }));
 }
 function joinRoom(code, token){
   const name = ($('nameInput').value || '').trim();
   if (!name && !token) { toast('Type your name first.'); $('nameInput').focus(); return; }
   if (name) { settings.name = name; settings.server = ($('serverInput').value || '').trim(); saveSettings(); }
   mode = 'online'; online.started = false; gameOverShown = false;
-  connectOnline(() => onlineSend({ type: 'join', code, name: name || 'Player', token: token || undefined }));
+  connectOnline(() => onlineSend({ type: 'join', code, name: name || 'Player', token: token || undefined, avatar: settings.avatar }));
 }
 function leaveOnline(silent){
   try { if (online.ws) { onlineSend({ type: 'leave' }); online.ws.close(); } } catch (e) {}
   online.ws = null; online.roomCode = null; online.myIdx = null; online.started = false; online.everConnected = false;
+  lastLobbyCount = 0;
   clearSession();
   if (!silent) { mode = null; showScreen('home'); }
 }
@@ -1074,6 +1234,10 @@ if (settings.server && ((/^wss?:\/\/(localhost|127\.0\.0\.1)\b/.test(settings.se
 $('nameInput').value = settings.name || '';
 $('serverInput').value = settings.server || '';
 $('serverInput').placeholder = defaultServerUrl();
+buildAvatarPick($('avatarPick'));
+buildAvatarPick($('avatarPickLobby'), (a) => { if (mode === 'online') onlineSend({ type: 'setAvatar', avatar: a }); });
+buildReactionPanel();
+$('rxnToggle').addEventListener('click', () => { ac(); $('rxnPanel').classList.toggle('hidden'); });
 if ((settings.declMode || 'free') !== 'free') {
   $('declSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.declMode));
 }
