@@ -253,8 +253,19 @@
   .bubble.mine { top: -16px; }
   .opp .bubble.show, .bubble.mine.show { opacity: 1; transform: translateX(-50%) scale(1); }
   .rxnWrap { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
-  .rxnPanel { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  /* Reactions open as a solid bottom sheet over everything — never as a
+     see-through layer mixed into the table. */
+  .rxnPanel {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: #0b3523; border-top: 2px solid rgba(242,193,78,.55);
+    box-shadow: 0 -12px 34px rgba(0,0,0,.55);
+    padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+    display: flex; flex-wrap: wrap; gap: 7px; max-height: 54vh; overflow-y: auto;
+  }
   .rxnPanel.hidden { display: none; }
+  .rxnSheetHead { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .rxnSheetHead b { font-size: 15px; }
+  .rxnClose { background: rgba(255,255,255,.1); border: 1.5px solid rgba(255,255,255,.25); color: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 15px; cursor: pointer; line-height: 1; }
   .rxnChip { border: 1.5px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #fff; border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
   .rxnChip:active { transform: scale(.95); }
   .rxnPanel.cool .rxnChip { opacity: .35; pointer-events: none; }
@@ -401,7 +412,6 @@
       <div class="bubble mine" id="myBubble"></div>
       <div class="rxnWrap">
         <button class="btn ghost small" id="rxnToggle" style="flex:0 0 auto">😀 Reactions</button>
-        <span class="sub">Tap a phrase — friends see it by your avatar</span>
       </div>
       <div class="rxnPanel hidden" id="rxnPanel"></div>
       <div class="turn-banner" id="turnBanner"></div>
@@ -704,13 +714,16 @@ function sendReaction(kind, i){
   showBubble(myIdx(), kind === 'emoji' ? REACTION_EMOJIS[i] : PHRASES[i]);
   sfx.react();
   if (mode === 'online') onlineSend({ type: 'reaction', kind, i });
+  panel.classList.add('hidden'); // sheet closes itself once you have reacted
 }
 function buildReactionPanel(){
   const panel = $('rxnPanel');
   panel.innerHTML =
+    '<div class="rxnSheetHead"><b>😀 Reactions</b><button class="rxnClose" id="rxnClose" type="button" aria-label="Close">✕</button></div>' +
     PHRASES.map((p, i) => '<button class="rxnChip" data-kind="phrase" data-i="' + i + '">' + esc(p) + '</button>').join('') +
     REACTION_EMOJIS.map((e, i) => '<button class="rxnChip" data-kind="emoji" data-i="' + i + '" style="font-size:16px">' + e + '</button>').join('') +
     '<button class="rxnChip" id="rxnSoundChip" type="button"></button>';
+  $('rxnClose').addEventListener('click', () => panel.classList.add('hidden'));
   panel.querySelectorAll('.rxnChip[data-kind]').forEach(b => b.addEventListener('click', () => sendReaction(b.dataset.kind, Number(b.dataset.i))));
   $('rxnSoundChip').addEventListener('click', () => { settings.reactSound = !settings.reactSound; saveSettings(); paintRxnSoundChip(); if (settings.reactSound) sfx.react(); });
   paintRxnSoundChip();
