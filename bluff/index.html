@@ -683,7 +683,7 @@ function renderGame(v){
       $('declPanel').classList.remove('hidden');
       const selCards = Array.from(selected);
       const selText = selCards.length
-        ? 'Selected: <b>' + selCards.map(c => RANKS[parseCard(c).rank] + glyph(c)).join(' ') + '</b>'
+        ? 'Your cards: <b>' + selCards.map(c => RANKS[parseCard(c).rank] + glyph(c)).join(' ') + '</b> (' + selCards.length + ' selected)'
         : 'Tap cards in your hand to select them.';
       if (forced !== null) {
         $('rankGrid').classList.add('hidden');
@@ -838,7 +838,7 @@ function driveBots(){
 /* ================= online mode ================= */
 const online = {
   ws: null, roomCode: null, myIdx: null, isHost: false,
-  playerToken: null, started: false, seq: 0, reconnectTries: 0,
+  playerToken: null, started: false, seq: 0, reconnectTries: 0, everConnected: false,
 };
 function defaultServerUrl(){
   // If this page was served by the game server itself, the WebSocket lives
@@ -868,12 +868,20 @@ function connectOnline(then){
   try { ws = new WebSocket(serverUrl()); }
   catch (e) { hideWait(); toast('That server address looks wrong.'); return; }
   online.ws = ws;
+  let failShown = false;
+  const showConnectFail = () => {
+    if (failShown) return;
+    failShown = true;
+    hideWait();
+    toast('Could not reach the game server at ' + serverUrl() + '. Online rooms need the game server running — bot games work without it.', 5200);
+  };
   const failTimer = setTimeout(() => {
-    if (ws.readyState !== 1) { hideWait(); toast('Could not reach the game server at ' + serverUrl() + '. Online rooms need the game server running — bot games work without it.', 5200); try { ws.close(); } catch (e) {} }
+    if (ws.readyState !== 1) { showConnectFail(); try { ws.close(); } catch (e) {} }
   }, 7000);
-  ws.onopen = () => { clearTimeout(failTimer); online.reconnectTries = 0; then && then(); };
+  ws.onopen = () => { clearTimeout(failTimer); online.reconnectTries = 0; online.everConnected = true; then && then(); };
   ws.onmessage = (m) => { let msg; try { msg = JSON.parse(m.data); } catch (e) { return; } onServerMessage(msg); };
   ws.onclose = () => {
+    clearTimeout(failTimer);
     if (mode === 'online' && online.started && online.reconnectTries < 5) {
       online.reconnectTries++;
       showWait('Reconnecting…', 'Your connection dropped. Trying to get you back into the game (try ' + online.reconnectTries + ' of 5).', false);
@@ -881,7 +889,11 @@ function connectOnline(then){
         onlineSend({ type: 'rejoin', code: online.roomCode, token: online.playerToken });
       }), 1500);
     } else if (mode === 'online') {
-      hideWait(); toast('Connection to the server was lost.');
+      hideWait();
+      // A socket that never opened is a REACHABILITY problem, not a lost
+      // connection — say so plainly instead of the scary "lost" message.
+      if (!online.everConnected) showConnectFail();
+      else toast('Connection to the server was lost.');
     }
   };
   ws.onerror = () => { /* onclose handles it */ };
@@ -950,7 +962,7 @@ function joinRoom(code, token){
 }
 function leaveOnline(silent){
   try { if (online.ws) { onlineSend({ type: 'leave' }); online.ws.close(); } } catch (e) {}
-  online.ws = null; online.roomCode = null; online.myIdx = null; online.started = false;
+  online.ws = null; online.roomCode = null; online.myIdx = null; online.started = false; online.everConnected = false;
   clearSession();
   if (!silent) { mode = null; showScreen('home'); }
 }
@@ -1034,6 +1046,13 @@ $('nameInput').addEventListener('change', () => { settings.name = $('nameInput')
 
 /* ================= init ================= */
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+// Self-heal: a saved "localhost" server address is useless when the page
+// itself is not served from this device (e.g. the public GitHub Pages site
+// opened on a phone) — clear it so the sensible default applies.
+if (settings.server && /^wss?:\/\/(localhost|127\.0\.0\.1)\b/.test(settings.server) &&
+    !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  settings.server = ''; saveSettings();
+}
 $('nameInput').value = settings.name || '';
 $('serverInput').value = settings.server || '';
 $('serverInput').placeholder = defaultServerUrl();
