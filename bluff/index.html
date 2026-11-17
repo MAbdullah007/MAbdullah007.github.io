@@ -840,11 +840,17 @@ const online = {
   ws: null, roomCode: null, myIdx: null, isHost: false,
   playerToken: null, started: false, seq: 0, reconnectTries: 0, everConnected: false,
 };
+// The public multiplayer server (filled in after the Render deploy). Used
+// when the page is opened from the static GitHub Pages copy, where there
+// is no same-origin game server to talk to.
+const PUBLIC_SERVER = 'wss://bluff-game-mbpm.onrender.com';
 function defaultServerUrl(){
   // If this page was served by the game server itself, the WebSocket lives
   // on the same host — no configuration needed.
-  if (location.protocol === 'http:' || location.protocol === 'https:')
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    if (PUBLIC_SERVER && /(^|\.)github\.io$/i.test(location.hostname)) return PUBLIC_SERVER;
     return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  }
   return 'ws://localhost:8080';
 }
 function serverUrl(){
@@ -875,9 +881,11 @@ function connectOnline(then){
     hideWait();
     toast('Could not reach the game server at ' + serverUrl() + '. Online rooms need the game server running — bot games work without it.', 5200);
   };
+  // Generous window: a free-tier server sleeps when idle and can take up
+  // to a minute to wake on the first connection of the day.
   const failTimer = setTimeout(() => {
     if (ws.readyState !== 1) { showConnectFail(); try { ws.close(); } catch (e) {} }
-  }, 7000);
+  }, 75000);
   ws.onopen = () => { clearTimeout(failTimer); online.reconnectTries = 0; online.everConnected = true; then && then(); };
   ws.onmessage = (m) => { let msg; try { msg = JSON.parse(m.data); } catch (e) { return; } onServerMessage(msg); };
   ws.onclose = () => {
@@ -949,14 +957,16 @@ function inviteLink(){
 function createRoom(){
   const name = ($('nameInput').value || '').trim();
   if (!name) { toast('Type your name first.'); $('nameInput').focus(); return; }
-  settings.name = name; settings.server = serverUrl(); saveSettings();
+  // Save only what the user actually typed in the server box — never the
+  // computed default, which would go stale and override better defaults.
+  settings.name = name; settings.server = ($('serverInput').value || '').trim(); saveSettings();
   mode = 'online'; online.started = false; gameOverShown = false;
   connectOnline(() => onlineSend({ type: 'create', name, declarationMode: settings.declMode || 'free' }));
 }
 function joinRoom(code, token){
   const name = ($('nameInput').value || '').trim();
   if (!name && !token) { toast('Type your name first.'); $('nameInput').focus(); return; }
-  if (name) { settings.name = name; settings.server = serverUrl(); saveSettings(); }
+  if (name) { settings.name = name; settings.server = ($('serverInput').value || '').trim(); saveSettings(); }
   mode = 'online'; online.started = false; gameOverShown = false;
   connectOnline(() => onlineSend({ type: 'join', code, name: name || 'Player', token: token || undefined }));
 }
