@@ -1049,18 +1049,26 @@ $('winnerLobbyBtn').addEventListener('click', () => {
 $('resumeBtn').addEventListener('click', () => {
   const s = JSON.parse(localStorage.getItem('bluff-session') || 'null');
   if (!s) { toast('No saved room to rejoin.'); return; }
-  $('serverInput').value = s.server || '';
+  $('serverInput').value = bogusSavedServer(s.server) ? '' : (s.server || '');
   joinRoom(s.code, s.token);
 });
 $('nameInput').addEventListener('change', () => { settings.name = $('nameInput').value.trim(); saveSettings(); });
 
 /* ================= init ================= */
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+// A saved server address that points at this page's own GitHub Pages host
+// is a stale computed default saved by an older build — the static page
+// host can never run the game server, so the value is always wrong and
+// must not override the real public server address.
+function bogusSavedServer(v){
+  if (!v || !/(^|\.)github\.io$/i.test(location.hostname)) return false;
+  try { return new URL(v).hostname === location.hostname; } catch (e) { return false; }
+}
 // Self-heal: a saved "localhost" server address is useless when the page
 // itself is not served from this device (e.g. the public GitHub Pages site
 // opened on a phone) — clear it so the sensible default applies.
-if (settings.server && /^wss?:\/\/(localhost|127\.0\.0\.1)\b/.test(settings.server) &&
-    !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+if (settings.server && ((/^wss?:\/\/(localhost|127\.0\.0\.1)\b/.test(settings.server) &&
+    !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) || bogusSavedServer(settings.server))) {
   settings.server = ''; saveSettings();
 }
 $('nameInput').value = settings.name || '';
