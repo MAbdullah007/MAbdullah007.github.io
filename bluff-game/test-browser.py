@@ -108,6 +108,26 @@ try:
                 saw_decision = True
             human_act(page)
             page.wait_for_timeout(130)
+        if won and not saw_decision:
+            # A fast game can end before the human ever draws an all-pass.
+            # Play one more game, watching only for the decision banner.
+            page.click("#playAgainBtn")
+            page.wait_for_selector(".pcard")
+            for step in range(1600):
+                if "Everyone passed!" in page.inner_text("#turnBanner"):
+                    saw_decision = True
+                    break
+                if page.locator("#winnerModal:not(.hidden)").count():
+                    break
+                human_act(page)
+                page.wait_for_timeout(130)
+            if page.locator("#winnerModal:not(.hidden)").count() == 0:
+                # Leave via a finished state the checks below can use.
+                for step in range(1600):
+                    if page.locator("#winnerModal:not(.hidden)").count():
+                        break
+                    human_act(page)
+                    page.wait_for_timeout(130)
         check(won, "bot game in the browser reaches the winner screen")
         check(saw_declare_panel, "declaration panel appeared on human turns")
         check(saw_decision, "burn/add decision appeared during the game")
