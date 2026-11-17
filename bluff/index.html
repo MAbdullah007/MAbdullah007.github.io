@@ -315,6 +315,34 @@
     .felt { min-height: 430px; }
     .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 470px; }
   }
+  /* Shorter desktop windows (browser chrome + taskbar eat the height):
+     tighten the table and controls so the page never needs to scroll. */
+  @media (min-width: 900px) and (max-height: 840px) {
+    .felt { min-height: 296px; }
+    .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 304px; }
+    .center-area { padding-top: 92px; }
+    .pile-wrap { width: 96px; height: 108px; }
+    .pile-empty { width: 96px; height: 108px; }
+    .mybar { padding-bottom: 10px; }
+    .rankChip { padding: 8px 0; }
+    .hand { min-height: 112px; }
+    .handRow { padding-top: 8px; }
+    .pcard { width: 68px; height: 96px; }
+    .pcard .big { font-size: 32px; }
+    .actions .btn { padding-top: 11px; padding-bottom: 11px; }
+  }
+  @media (min-width: 900px) and (max-height: 700px) {
+    .felt { min-height: 252px; }
+    .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 260px; }
+    .center-area { padding-top: 78px; }
+    .pile-wrap { width: 88px; height: 100px; }
+    .pile-empty { width: 88px; height: 100px; }
+    .opp { width: 106px; }
+    .opp .avatar { width: 44px; height: 44px; font-size: 18px; }
+    .hand { min-height: 102px; }
+    .pcard { width: 62px; height: 88px; }
+    .pcard .big { font-size: 29px; }
+  }
 </style>
 </head>
 <body>
