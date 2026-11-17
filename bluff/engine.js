@@ -7,14 +7,16 @@
  *
  * RULESET (documented in README.md and the in-game How to Play):
  * - One standard 52-card deck, no jokers. 2-6 players. All cards are dealt.
- * - Rank sequence: plays must declare the current sequence rank, which starts
- *   at Ace at the beginning of each round and advances by one after every
- *   accepted play (A,2,3,...,K,A,...). A "round" ends when the pile leaves
- *   the table (challenge or four-of-a-kind burn); the next round restarts
- *   at Ace.
- * - On your turn you play 1-4 cards face down and declare them as that many
- *   of the current rank. The rank is fixed by the sequence; the bluff is
- *   whether the cards really are that rank.
+ * - DECLARATIONS: the actual cards played and the declared rank are kept
+ *   separate. A challenge always compares the ACTUAL cards against the
+ *   DECLARED rank. Two modes, chosen per game (rules.declarationMode):
+ *     - 'free' (default): any rank may be declared on any play. You may
+ *       play two Kings and declare them as two Queens.
+ *     - 'sequence': the first play of a round may declare any rank; each
+ *       later play in the same round must declare the previous declared
+ *       rank + 1 (wrapping K -> A). state.expectedRank holds the required
+ *       rank, or null when any rank may be declared.
+ * - On your turn you play 1-4 cards face down and declare a rank.
  * - CUSTOM OPENING RULE: the first play on an empty pile must contain at
  *   least TWO cards (2, 3 or 4) — unless the player holds only one card in
  *   total, in which case that single card may be played.
@@ -25,14 +27,30 @@
  *     - play was a bluff (any card differs): the player who played takes
  *       the whole pile.
  *   The winner of a challenge leads the next round.
- * - FOUR-OF-A-KIND: playing 4 cards is declared as four of the current rank
- *   and triggers the same CHECK/PASS responses, with one extra outcome:
- *   if EVERYONE passes, the play is believed and the entire pile is BURNED
- *   (removed from the game) as a reward; the four-player leads a new round.
- *   If someone CHECKs, normal challenge resolution applies (no burn).
+ * - ALL PASS — BURN OR ADD DECISION: if everyone passes a play of 1-3
+ *   cards, control returns to the player who made the play (phase
+ *   'decide'). They choose:
+ *     - BURN PILE: the whole active pile moves to the burned zone (cards
+ *       stay accounted for, never return to play), and the SAME player
+ *       opens a fresh play on the empty pile (opening rule applies).
+ *     - ADD MORE CARDS: the same player plays more cards onto the existing
+ *       pile with a new declaration, starting a new response cycle.
+ *   The decision is repeatable: after an ADD, another all-pass returns the
+ *   decision to the same player again. Every ADD moves at least one card
+ *   from a hand to the pile, so the cycle cannot loop without progress.
+ * - FOUR-OF-A-KIND: playing 4 cards declares four of a rank and triggers
+ *   the same CHECK/PASS responses, with one extra outcome: if EVERYONE
+ *   passes, the play is believed and the entire pile is BURNED
+ *   automatically (the special reward — no decision needed); the
+ *   four-player leads a new round. If someone CHECKs, normal challenge
+ *   resolution applies (no burn).
  * - FINAL PLAY: a player who plays their last card(s) does NOT win until
  *   the play survives: all opponents PASS, or a CHECK fails (play honest).
  *   If a CHECK succeeds (bluff), they take the pile and the game continues.
+ * - State machine: phases are 'play' -> 'respond' -> ('play' via challenge
+ *   or four-burn | 'decide' via all-pass | 'over'), and 'decide' -> 'play'
+ *   (burn or add). Every phase names exactly one actor: turn, responder,
+ *   or decisionFor. No phase waits without an owner.
  * - Invariant: hands + pile + burned always contain exactly the 52 unique
  *   cards. assertConservation() verifies this.
  */
@@ -104,13 +122,15 @@
     players.forEach(p => sortHand(p.hand));
     return {
       players,
-      pile: [],            // [{cards:[ids], by, rank, count, four}]
+      rules: { declarationMode: opts.declarationMode === 'sequence' ? 'sequence' : 'free' },
+      pile: [],            // [{cards:[ids], by, rank (DECLARED), count, four}]
       burned: [],
-      phase: 'play',       // play | respond | over
+      phase: 'play',       // play | respond | decide | over
       turn: 0,
-      nextRank: 0,         // sequence rank the next play must declare
+      expectedRank: null,  // sequence mode: rank the next play must declare (null = any)
       lastPlay: null,      // reference into pile (top play)
       respondQueue: [],    // player indices still to respond, in order
+      decisionFor: null,   // player idx who must choose burn/add (decide phase)
       pendingWin: null,    // player idx who emptied hand, awaiting survival
       winner: null,
       revealedCards: [],   // distinct card ids revealed by challenges (public knowledge)
@@ -134,7 +154,7 @@
     return state.players[playerIdx].hand.length >= 2 ? 2 : 1;
   }
 
-  function validatePlay(state, playerIdx, cardIds) {
+  function validatePlay(state, playerIdx, cardIds, declaredRank) {
     if (state.phase !== 'play') throw err('WRONG_PHASE', 'Not a play phase');
     if (state.turn !== playerIdx) throw err('NOT_YOUR_TURN', 'It is not your turn');
     if (!Array.isArray(cardIds) || cardIds.length < 1 || cardIds.length > 4)
@@ -145,29 +165,38 @@
     const min = minPlayCount(state, playerIdx);
     if (cardIds.length < min)
       throw err('OPENING_MIN_TWO', 'Opening play on an empty pile needs at least ' + min + ' cards');
+    if (!Number.isInteger(declaredRank) || declaredRank < 0 || declaredRank > 12)
+      throw err('BAD_DECLARATION', 'Declare a rank from A to K');
+    if (state.rules && state.rules.declarationMode === 'sequence' &&
+        state.expectedRank !== null && state.expectedRank !== undefined &&
+        declaredRank !== state.expectedRank)
+      throw err('BAD_DECLARATION', 'This round you must declare ' + RANKS[state.expectedRank]);
     return true;
   }
 
-  function applyPlay(state, playerIdx, cardIds) {
-    validatePlay(state, playerIdx, cardIds);
+  function applyPlay(state, playerIdx, cardIds, declaredRank) {
+    validatePlay(state, playerIdx, cardIds, declaredRank);
     const p = state.players[playerIdx];
     p.hand = p.hand.filter(c => !cardIds.includes(c));
     const play = {
       cards: cardIds.slice(),
       by: playerIdx,
-      rank: state.nextRank,
+      rank: declaredRank, // DECLARED rank — the actual cards stay in .cards
       count: cardIds.length,
       four: cardIds.length === 4,
     };
     state.pile.push(play);
     state.lastPlay = play;
     state.moveNo++;
+    state.decisionFor = null;
+    if (state.rules && state.rules.declarationMode === 'sequence')
+      state.expectedRank = (declaredRank + 1) % 13;
     if (p.hand.length === 0) state.pendingWin = playerIdx;
     // Response phase: every other player, in turn order starting after the player.
     state.respondQueue = [];
     for (let k = 1; k < state.players.length; k++) {
       const idx = (playerIdx + k) % state.players.length;
-      if (state.players[idx].hand.length > 0 || idx !== state.pendingWin) state.respondQueue.push(idx);
+      state.respondQueue.push(idx);
     }
     state.phase = 'respond';
     logEvent(state, { type: 'play', by: playerIdx, count: play.count, rank: play.rank, four: play.four });
@@ -251,16 +280,50 @@
       startRound(state, play.by);
       return { resolved: true, burned: burnedNow.length };
     }
-    state.nextRank = (play.rank + 1) % 13;
-    state.turn = (play.by + 1) % state.players.length;
+    // Everyone passed: control returns to the player who made the play.
+    // They now choose BURN PILE or ADD MORE CARDS (the 'decide' phase).
+    state.phase = 'decide';
+    state.decisionFor = play.by;
+    state.turn = play.by;
+    logEvent(state, { type: 'decide', by: play.by });
+    return { resolved: true, decision: true };
+  }
+
+  function validateDecision(state, playerIdx, choice) {
+    if (state.phase !== 'decide') throw err('WRONG_PHASE', 'No burn/add decision is pending');
+    if (state.decisionFor !== playerIdx) throw err('NOT_YOUR_DECISION', 'It is not your decision');
+    if (choice !== 'burn' && choice !== 'add') throw err('BAD_ACTION', 'Choose burn or add');
+    return true;
+  }
+
+  function applyDecision(state, playerIdx, choice) {
+    validateDecision(state, playerIdx, choice);
+    state.decisionFor = null;
+    state.moveNo++;
+    if (choice === 'burn') {
+      const burnedNow = [];
+      for (const pl of state.pile) burnedNow.push(...pl.cards);
+      state.burned.push(...burnedNow);
+      state.pile = [];
+      state.lastPlay = null;
+      logEvent(state, { type: 'burn', by: playerIdx, burned: burnedNow.length });
+      // Fresh play cycle for the SAME player; the pile is empty, so the
+      // opening rule (minimum 2 cards) applies to their next play.
+      startRound(state, playerIdx);
+      return { resolved: true, burned: burnedNow.length };
+    }
+    // ADD: same player plays again onto the existing pile. The pile is
+    // untouched; their upcoming play starts a new response cycle.
     state.phase = 'play';
-    logEvent(state, { type: 'accepted', by: play.by });
-    return { resolved: true };
+    state.turn = playerIdx;
+    logEvent(state, { type: 'add', by: playerIdx });
+    return { resolved: true, add: true };
   }
 
   function startRound(state, leaderIdx) {
     state.round++;
-    state.nextRank = 0; // new round restarts the sequence at Ace
+    state.expectedRank = null; // new round: any rank may be declared first
+    state.decisionFor = null;
     state.turn = leaderIdx;
     state.phase = 'play';
     logEvent(state, { type: 'round', leader: leaderIdx, round: state.round });
@@ -294,7 +357,9 @@
     return {
       phase: state.phase,
       turn: state.turn,
-      nextRank: state.nextRank,
+      expectedRank: state.expectedRank === undefined ? null : state.expectedRank,
+      decisionFor: state.decisionFor,
+      declarationMode: state.rules ? state.rules.declarationMode : 'free',
       round: state.round,
       moveNo: state.moveNo,
       winner: state.winner,
@@ -338,12 +403,22 @@
     rng = rng || Math.random;
     const me = view.players[myIdx];
     const hand = me.hand.slice();
-    const rank = view.nextRank;
     const diff = view.players[myIdx].difficulty || 'medium';
     const min = view.pileSize === 0 ? (hand.length >= 2 ? 2 : 1) : 1;
+    // Which rank to build the play around: the forced sequence rank if the
+    // rules demand one, otherwise the rank this bot holds most of.
+    const counts = myRankCounts(hand);
+    let forced = null;
+    if ((view.declarationMode || 'free') === 'sequence' && view.expectedRank !== null && view.expectedRank !== undefined)
+      forced = view.expectedRank;
+    let rank = forced;
+    if (rank === null) {
+      rank = 0;
+      for (let r = 1; r < 13; r++) if (counts[r] > counts[rank]) rank = r;
+    }
     const honest = hand.filter(c => parseCard(c).rank === rank);
     const others = hand.filter(c => parseCard(c).rank !== rank);
-    // Cards ranked by "least useful to keep": ranks far from upcoming sequence.
+    // Cards ranked by "least useful to keep": ranks far from the build rank.
     const junkFirst = others.slice().sort((a, b) => {
       const da = (parseCard(a).rank - rank + 13) % 13, db = (parseCard(b).rank - rank + 13) % 13;
       return db - da;
@@ -363,32 +438,77 @@
       const pool = diff === 'hard' ? junkFirst.concat(honest) : shuffle(junkFirst.concat(honest), rng);
       return pool.slice(0, n);
     }
+    function pick() {
+      if (diff === 'easy') {
+        if (honest.length >= min && rng() < 0.8) return honestPlay();
+        if (honest.length > 0 && rng() < 0.5) return honest.slice(0, honest.length).concat(junkFirst).slice(0, Math.max(min, honest.length));
+        return bluffPlay();
+      }
+      if (diff === 'medium') {
+        // Going out honestly is always worth it; a small hand may also be
+        // dumped whole as a going-out bluff attempt.
+        if (honest.length === hand.length && honest.length >= min) return honest.slice(0, Math.min(4, honest.length));
+        if (hand.length <= 4 && hand.length >= min && rng() < 0.45) return hand.slice();
+        if (honest.length >= min && rng() < 0.75) return honestPlay();
+        if (honest.length > 0 && honest.length < min) return honest.concat(junkFirst).slice(0, min);
+        return bluffPlay();
+      }
+      // hard
+      if (honest.length >= min) {
+        // Play all four of a kind when holding them: burn reward or strong dump.
+        if (honest.length === 4) return honest.slice();
+        const hp = honestPlay();
+        if (hp) return hp;
+      }
+      if (honest.length > 0) return honest.concat(junkFirst).slice(0, min);
+      // Bluff: if we can empty our hand, do it; otherwise minimum cards.
+      if (hand.length <= 4 && hand.length >= min) return junkFirst.slice(0, hand.length);
+      return bluffPlay();
+    }
+    const cards = pick();
+    // Declaration: forced in sequence mode. Otherwise, if the chosen cards
+    // all share one rank, declare it honestly; else declare the build rank
+    // (a bluff). Easy bots sometimes declare a random rank instead.
+    let declared = forced !== null ? forced : rank;
+    if (forced === null) {
+      const ranks = cards.map(c => parseCard(c).rank);
+      if (ranks.every(r => r === ranks[0])) declared = ranks[0];
+      else if (diff === 'easy' && rng() < 0.25) declared = Math.floor(rng() * 13);
+      else if (diff === 'hard') {
+        // Declare the rank opponents can least disprove: the one with the
+        // most copies not yet publicly revealed and not in this play.
+        const seen = seenRankCounts(view);
+        let best = declared, bestScore = -1;
+        for (let r = 0; r < 13; r++) {
+          const score = 4 - seen[r] - counts[r];
+          if (score > bestScore) { bestScore = score; best = r; }
+        }
+        declared = best;
+      }
+    }
+    return { cards, rank: declared };
+  }
 
-    if (diff === 'easy') {
-      if (honest.length >= min && rng() < 0.8) return honestPlay();
-      if (honest.length > 0 && rng() < 0.5) return honest.slice(0, honest.length).concat(junkFirst).slice(0, Math.max(min, honest.length));
-      return bluffPlay();
-    }
+  // Bot choice in the burn/add decision phase. Heuristics only; both
+  // choices are always legal here, so a bot can never get stuck.
+  function botDecide(view, myIdx, rng) {
+    rng = rng || Math.random;
+    const diff = view.players[myIdx].difficulty || 'medium';
+    const pile = view.pileSize;
+    const hand = view.players[myIdx].hand.length;
+    if (diff === 'easy') return rng() < 0.5 ? 'burn' : 'add';
     if (diff === 'medium') {
-      // Going out honestly is always worth it; a small hand may also be
-      // dumped whole as a going-out bluff attempt.
-      if (honest.length === hand.length && honest.length >= min) return honest.slice(0, Math.min(4, honest.length));
-      if (hand.length <= 4 && hand.length >= min && rng() < 0.45) return hand.slice();
-      if (honest.length >= min && rng() < 0.75) return honestPlay();
-      if (honest.length > 0 && honest.length < min) return honest.concat(junkFirst).slice(0, min);
-      return bluffPlay();
+      if (pile >= 10) return 'burn';            // bank a big pile safely
+      if (hand <= 3) return 'add';              // close to going out: push on
+      return rng() < 0.65 ? 'add' : 'burn';
     }
-    // hard
-    if (honest.length >= min) {
-      // Play all four of a kind when holding them: burn reward or strong dump.
-      if (honest.length === 4) return honest.slice();
-      const hp = honestPlay();
-      if (hp) return hp;
-    }
-    if (honest.length > 0) return honest.concat(junkFirst).slice(0, min);
-    // Bluff: if we can empty our hand, do it; otherwise minimum cards.
-    if (hand.length <= 4 && hand.length >= min) return junkFirst.slice(0, hand.length);
-    return bluffPlay();
+    // hard: burn when the pile is worth banking or the hand reopens well
+    // (holds a pair or better for the fresh min-2 opening); otherwise add.
+    if (pile >= 7) return 'burn';
+    const counts = myRankCounts(view.players[myIdx].hand);
+    const bestPair = Math.max(...counts);
+    if (bestPair >= 2 && rng() < 0.6) return 'burn';
+    return 'add';
   }
 
   function botRespond(view, myIdx, rng) {
@@ -444,7 +564,8 @@
   return {
     RANKS, SUITS, SUIT_GLYPHS, cardId, parseCard, createDeck, shuffle, mulberry32,
     newGame, sortHand, pileSize, minPlayCount, validatePlay, applyPlay,
-    currentResponder, validateRespond, applyRespond, assertConservation, publicView,
-    botPlay, botRespond,
+    currentResponder, validateRespond, applyRespond, validateDecision, applyDecision,
+    assertConservation, publicView,
+    botPlay, botRespond, botDecide,
   };
 });

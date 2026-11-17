@@ -1,0 +1,13 @@
+# Render blueprint for the Bluff! multiplayer server.
+# Deploy: render.com -> New -> Blueprint -> pick this repository -> Apply.
+# The service serves BOTH the web client and the WebSocket game server on
+# one port, so once it is live, opening the service URL is all anyone needs.
+services:
+  - type: web
+    name: bluff-game
+    env: node
+    plan: free
+    rootDir: bluff-game/server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz

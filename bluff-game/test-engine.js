@@ -17,11 +17,19 @@ function rig(hands, opts) {
     connected: true, hand: h.slice(),
   }));
   return {
-    players, pile: opts.pile || [], burned: opts.burned || [],
-    phase: 'play', turn: opts.turn || 0, nextRank: opts.nextRank || 0,
-    lastPlay: null, respondQueue: [], pendingWin: null, winner: null,
-    round: 1, log: [], moveNo: 0,
+    players,
+    rules: { declarationMode: opts.mode || 'free' },
+    pile: opts.pile || [], burned: opts.burned || [],
+    phase: 'play', turn: opts.turn || 0,
+    expectedRank: opts.expectedRank !== undefined ? opts.expectedRank : null,
+    lastPlay: null, respondQueue: [], decisionFor: null, pendingWin: null, winner: null,
+    revealedCards: [], round: 1, log: [], moveNo: 0,
   };
+}
+function rigPlayers(s, hands) {
+  s.players = hands.map((h, i) =>
+    ({ idx: i, id: 'p' + i, name: 'P' + i, isBot: false, difficulty: 'medium', connected: true, hand: h.slice() }));
+  return s;
 }
 
 /* --- Deck --- */
@@ -43,140 +51,196 @@ for (let n = 2; n <= 6; n++) {
 
 /* --- Opening rule --- */
 {
-  // P0 has aces + others; empty pile: 1 card must be rejected.
   const s = rig([['AS', 'AH', '5C', '9D'], ['2S', '3S', '4S']]);
-  throwsCode(() => E.applyPlay(s, 0, ['AS']), 'OPENING_MIN_TWO', 'opening with 1 card rejected');
-  E.applyPlay(s, 0, ['AS', 'AH']);
+  throwsCode(() => E.applyPlay(s, 0, ['AS'], 0), 'OPENING_MIN_TWO', 'opening with 1 card rejected');
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
   ok(s.pile.length === 1 && s.phase === 'respond', 'opening with 2 cards accepted');
 }
 {
   const s = rig([['AS', 'AH', 'AD', '9D'], ['2S', '3S']]);
-  E.applyPlay(s, 0, ['AS', 'AH', 'AD']);
+  E.applyPlay(s, 0, ['AS', 'AH', 'AD'], 0);
   ok(s.lastPlay.count === 3, 'opening with 3 cards accepted');
 }
 {
-  const s = rig([['AS', 'AH', 'AD', 'AC'], ['2S', '3S']]);
-  E.applyPlay(s, 0, ['AS', 'AH', 'AD', 'AC']);
-  ok(s.lastPlay.four === true, 'opening with 4 cards accepted and flagged four');
-}
-{
-  // Player holding exactly 1 card may open with it (documented exception).
   const s = rig([['AS'], ['2S', '3S', '4S', '5S', '6S', '7S', '8S', '9S', '10S', 'JS', 'QS', 'KS',
     '2H', '3H', '4H', '5H', '6H', '7H', '8H', '9H', '10H', 'JH', 'QH', 'KH',
     '2D', '3D', '4D', '5D', '6D', '7D', '8D', '9D', '10D', 'JD', 'QD', 'KD',
     '2C', '3C', '4C', '5C', '6C', '7C', '8C', '9C', '10C', 'JC', 'QC', 'KC', 'AH', 'AD', 'AC']]);
-  E.applyPlay(s, 0, ['AS']);
+  E.applyPlay(s, 0, ['AS'], 0);
   ok(s.pendingWin === 0, 'single-card holder may open with 1 card');
 }
 {
-  // Non-opening play (pile non-empty) may be 1 card.
   const s = rig([['5C', '9D', '2H'], ['2S', '3S', '4S']],
-    { pile: [{ cards: ['AS', 'AH'], by: 1, rank: 0, count: 2, four: false }], nextRank: 1 });
+    { pile: [{ cards: ['AS', 'AH'], by: 1, rank: 0, count: 2, four: false }] });
   s.lastPlay = s.pile[0];
-  E.applyPlay(s, 0, ['2H']);
+  E.applyPlay(s, 0, ['2H'], 1);
   ok(s.lastPlay.count === 1, 'mid-round 1-card play allowed');
 }
 /* --- Illegal moves --- */
 {
   const s = rig([['AS', 'AH', '5C'], ['2S', '3S', '4S']]);
-  throwsCode(() => E.applyPlay(s, 1, ['2S', '3S']), 'NOT_YOUR_TURN', 'out-of-turn play rejected');
-  throwsCode(() => E.applyPlay(s, 0, ['AS', 'AS']), 'DUPLICATE_CARD', 'duplicate card in one play rejected');
-  throwsCode(() => E.applyPlay(s, 0, ['AS', 'KS']), 'CARD_NOT_IN_HAND', 'card not in hand rejected');
-  throwsCode(() => E.applyPlay(s, 0, ['AS', 'AH', '5C', '2S', '3S']), 'BAD_COUNT', 'playing 5 cards rejected');
+  throwsCode(() => E.applyPlay(s, 1, ['2S', '3S'], 0), 'NOT_YOUR_TURN', 'out-of-turn play rejected');
+  throwsCode(() => E.applyPlay(s, 0, ['AS', 'AS'], 0), 'DUPLICATE_CARD', 'duplicate card in one play rejected');
+  throwsCode(() => E.applyPlay(s, 0, ['AS', 'KS'], 0), 'CARD_NOT_IN_HAND', 'card not in hand rejected');
+  throwsCode(() => E.applyPlay(s, 0, ['AS', 'AH', '5C', '2S', '3S'], 0), 'BAD_COUNT', 'playing 5 cards rejected');
+  throwsCode(() => E.applyPlay(s, 0, ['AS', 'AH'], 99), 'BAD_DECLARATION', 'invalid declaration rank rejected');
   throwsCode(() => E.applyRespond(s, 1, 'pass'), 'WRONG_PHASE', 'respond during play phase rejected');
+  throwsCode(() => E.applyDecision(s, 0, 'burn'), 'WRONG_PHASE', 'decision during play phase rejected');
 }
 
-/* --- Challenge: honest play -> checker takes pile --- */
+/* --- NEW: free declarations (select Kings, declare Queens) --- */
+{
+  const s = rig([['KS', 'KH', '5C'], ['2S', '3S', '4S']]);
+  E.applyPlay(s, 0, ['KS', 'KH'], 11); // actual Kings, declared Queens
+  ok(s.lastPlay.rank === 11 && s.lastPlay.cards.join() === 'KS,KH', 'declaration stored separately from actual cards');
+  const res = E.applyRespond(s, 1, 'check');
+  ok(res.honest === false, 'challenge compares ACTUAL cards to declaration: K,K declared as Q is a bluff');
+  ok(res.revealed.join() === 'KS,KH', 'challenge reveals the actual Kings');
+  ok(s.players[0].hand.length === 3, 'caught bluffer takes the pile');
+}
+{
+  const s = rig([['KS', 'KH', '5C'], ['2S', '3S', '4S']]);
+  E.applyPlay(s, 0, ['KS', 'KH'], 12); // declared Kings honestly
+  const res = E.applyRespond(s, 1, 'check');
+  ok(res.honest === true, 'K,K declared as Kings is honest');
+  ok(s.players[1].hand.length === 5, 'checker takes pile on honest play');
+}
+/* --- NEW: sequence mode declarations --- */
+{
+  const s = rig([['7S', '7H', '8C', '9D'], ['2S', '3S', '4S']], { mode: 'sequence' });
+  E.applyPlay(s, 0, ['7S', '7H'], 6); // round opens: any rank allowed, declares 7s
+  ok(s.expectedRank === 7, 'sequence mode: next declaration must be 8s');
+  E.applyRespond(s, 1, 'pass');
+  ok(s.phase === 'decide' && s.decisionFor === 0, 'all pass leads to decision in sequence mode too');
+  E.applyDecision(s, 0, 'add');
+  throwsCode(() => E.applyPlay(s, 0, ['9D'], 8), 'BAD_DECLARATION', 'sequence mode rejects declaring 9s when 8s are due');
+  E.applyPlay(s, 0, ['8C'], 7);
+  ok(s.lastPlay.rank === 7, 'sequence mode accepts the due rank');
+}
+
+/* --- Challenge outcomes (classic) --- */
 {
   const s = rig([['AS', 'AH', '9C'], ['2S', '3S', '4S']]);
-  E.applyPlay(s, 0, ['AS', 'AH']); // honest: two Aces, declares 2xA
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
   ok(E.currentResponder(s) === 1, 'responder is next player');
   const res = E.applyRespond(s, 1, 'check');
-  ok(res.honest === true, 'honest play detected');
-  ok(s.players[1].hand.length === 5, 'checker takes pile on honest play');
-  ok(s.pile.length === 0 && s.turn === 0, 'honest player leads next round');
-  ok(s.nextRank === 0, 'new round restarts at Ace');
+  ok(res.honest === true && s.players[1].hand.length === 5, 'honest play: checker takes pile');
+  ok(s.pile.length === 0 && s.turn === 0 && s.phase === 'play', 'honest player leads next round');
 }
-/* --- Challenge: bluff -> player takes pile --- */
 {
   const s = rig([['AS', '9C', '9D'], ['2S', '3S', '4S']]);
-  E.applyPlay(s, 0, ['AS', '9C']); // declares 2xA, actually A+9 = bluff
+  E.applyPlay(s, 0, ['AS', '9C'], 0);
   const res = E.applyRespond(s, 1, 'check');
-  ok(res.honest === false, 'bluff detected');
-  ok(s.players[0].hand.length === 3, 'bluffer takes pile back');
-  ok(s.turn === 1, 'checker leads next round after catching bluff');
-}
-/* --- All pass: rank advances, turn advances --- */
-{
-  const s = rig([['AS', 'AH', '9C'], ['2S', '3S', '4S'], ['5D', '6D', '7D']]);
-  // rebuild as 3-player rig
-  s.players = [['AS', 'AH', '9C'], ['2S', '3S', '4S'], ['5D', '6D', '7D']].map((h, i) =>
-    ({ idx: i, id: 'p' + i, name: 'P' + i, isBot: false, difficulty: 'medium', connected: true, hand: h }));
-  E.applyPlay(s, 0, ['AS', 'AH']);
-  E.applyRespond(s, 1, 'pass');
-  ok(s.phase === 'respond' && E.currentResponder(s) === 2, 'response passes in turn order');
-  E.applyRespond(s, 2, 'pass');
-  ok(s.phase === 'play' && s.turn === 1 && s.nextRank === 1, 'after all pass: next player, rank advances to 2');
-  ok(E.pileSize(s) === 2, 'pile stays after all pass on normal play');
+  ok(res.honest === false && s.players[0].hand.length === 3 && s.turn === 1, 'bluff: player takes pile, checker leads');
 }
 
-/* --- Four-of-a-kind: all pass -> pile burned --- */
+/* --- NEW: all-pass -> decide -> ADD -> decide again -> BURN --- */
 {
-  const s = rig([['QS', 'QH', 'QD', 'QC', '3C'], ['2S', '3S', '4S']], { nextRank: 11 });
-  E.applyPlay(s, 0, ['QS', 'QH', 'QD', 'QC']);
+  const s = rigPlayers(rig([[], [], []]), [['AS', 'AH', '9C', '4D', '5D'], ['2S', '3S', '5S'], ['6D', '7D', '8D']]);
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
+  E.applyRespond(s, 1, 'pass');
+  ok(s.phase === 'respond' && E.currentResponder(s) === 2, 'responses proceed in turn order');
+  E.applyRespond(s, 2, 'pass');
+  ok(s.phase === 'decide' && s.decisionFor === 0, 'all pass: decision returns to the player who played');
+  ok(E.pileSize(s) === 2, 'pile intact during decision');
+  throwsCode(() => E.applyRespond(s, 1, 'check'), 'WRONG_PHASE', 'challenge during a pending decision is rejected');
+  throwsCode(() => E.applyDecision(s, 1, 'burn'), 'NOT_YOUR_DECISION', 'only the decision owner may decide');
+  // ADD MORE CARDS
+  E.applyDecision(s, 0, 'add');
+  ok(s.phase === 'play' && s.turn === 0, 'ADD returns the same player to play');
+  E.applyPlay(s, 0, ['9C'], 8); // adds a 9, declares 9s (free mode)
+  ok(E.pileSize(s) === 3 && s.lastPlay.count === 1 && s.lastPlay.rank === 8, 'ADD grows the pile and records the new declaration');
+  E.applyRespond(s, 1, 'pass');
+  E.applyRespond(s, 2, 'pass');
+  ok(s.phase === 'decide' && s.decisionFor === 0, 'decision repeats after another all-pass');
+  // BURN PILE
+  E.applyDecision(s, 0, 'burn');
+  ok(s.pile.length === 0 && s.burned.length === 3, 'BURN moves the whole pile to the burned zone');
+  ok(s.phase === 'play' && s.turn === 0, 'burner starts the fresh play');
+  ok(!s.players.some(p => p.hand.some(c => s.burned.includes(c))), 'burned cards are in no hand');
+  throwsCode(() => E.applyPlay(s, 0, ['4D'], 3), 'OPENING_MIN_TWO', 'opening minimum of 2 applies after a burn');
+  E.applyPlay(s, 0, ['4D', '5D'], 3);
+  ok(s.phase === 'respond' && s.pendingWin === 0, 'fresh play after burn proceeds (and happens to be a final play)');
+}
+
+/* --- Four-of-a-kind --- */
+{
+  const s = rig([['QS', 'QH', 'QD', 'QC', '3C'], ['2S', '3S', '4S']]);
+  E.applyPlay(s, 0, ['QS', 'QH', 'QD', 'QC'], 11);
   ok(s.lastPlay.four === true, 'four play flagged');
   E.applyRespond(s, 1, 'pass');
-  ok(s.burned.length === 4 && s.pile.length === 0, 'believed four-of-a-kind burns the pile');
-  ok(s.turn === 0 && s.nextRank === 0, 'four-player leads new round at Ace');
-  ok(s.players[0].hand.length === 1, 'four-player keeps remaining card');
+  ok(s.burned.length === 4 && s.pile.length === 0, 'believed four-of-a-kind burns the pile automatically');
+  ok(s.phase === 'play' && s.turn === 0, 'four: no decision phase, four-player opens fresh');
 }
-/* --- Four-of-a-kind: checked and genuine -> checker takes pile, no burn --- */
 {
-  const s = rig([['QS', 'QH', 'QD', 'QC', '3C'], ['2S', '3S', '4S']], { nextRank: 11 });
-  E.applyPlay(s, 0, ['QS', 'QH', 'QD', 'QC']);
+  const s = rig([['QS', 'QH', 'QD', 'QC', '3C'], ['2S', '3S', '4S']]);
+  E.applyPlay(s, 0, ['QS', 'QH', 'QD', 'QC'], 11);
   const res = E.applyRespond(s, 1, 'check');
-  ok(res.honest === true && s.burned.length === 0, 'checked genuine four: no burn');
-  ok(s.players[1].hand.length === 7, 'checker takes pile on genuine four');
+  ok(res.honest === true && s.burned.length === 0 && s.players[1].hand.length === 7, 'checked genuine four: checker takes pile, no burn');
 }
-/* --- Four-of-a-kind: checked and bluff -> player takes pile --- */
 {
-  const s = rig([['QS', 'QH', 'QD', '9C', '3C'], ['2S', '3S', '4S']], { nextRank: 11 });
-  E.applyPlay(s, 0, ['QS', 'QH', 'QD', '9C']); // declares 4xQ, actually 3xQ+9
+  const s = rig([['QS', 'QH', 'QD', '9C', '3C'], ['2S', '3S', '4S']]);
+  E.applyPlay(s, 0, ['QS', 'QH', 'QD', '9C'], 11);
   const res = E.applyRespond(s, 1, 'check');
   ok(res.honest === false && s.players[0].hand.length === 5, 'bluffed four: player takes pile');
 }
 
-/* --- Final play: survives all-pass -> win --- */
+/* --- Final play --- */
 {
   const s = rig([['AS', 'AH'], ['2S', '3S', '4S']]);
-  E.applyPlay(s, 0, ['AS', 'AH']);
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
   ok(s.pendingWin === 0 && s.phase === 'respond', 'final play does not win immediately');
   E.applyRespond(s, 1, 'pass');
-  ok(s.phase === 'over' && s.winner === 0, 'final play surviving all-pass wins');
+  ok(s.phase === 'over' && s.winner === 0, 'final play surviving all-pass wins (no burn/add decision)');
 }
-/* --- Final play: caught bluffing -> no win, takes pile --- */
 {
   const s = rig([['AS', '9H'], ['2S', '3S', '4S']]);
-  E.applyPlay(s, 0, ['AS', '9H']);
+  E.applyPlay(s, 0, ['AS', '9H'], 0);
   const res = E.applyRespond(s, 1, 'check');
-  ok(res.honest === false && s.phase !== 'over', 'caught final bluff: game continues');
-  ok(s.players[0].hand.length === 2, 'caught final bluffer takes pile');
+  ok(res.honest === false && s.phase !== 'over' && s.players[0].hand.length === 2, 'caught final bluff: no win, takes pile');
 }
-/* --- Final play: honest but checked -> still wins --- */
 {
   const s = rig([['AS', 'AH'], ['2S', '3S', '4S']]);
-  E.applyPlay(s, 0, ['AS', 'AH']);
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
   const res = E.applyRespond(s, 1, 'check');
   ok(res.honest === true && s.phase === 'over' && s.winner === 0, 'honest final play wins even when checked');
 }
+{
+  // Final card played via ADD MORE CARDS, then survives.
+  const s = rig([['AS', 'AH', '9C'], ['2S', '3S', '4S']]);
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
+  E.applyRespond(s, 1, 'pass');
+  ok(s.phase === 'decide', 'decision reached with one card left');
+  E.applyDecision(s, 0, 'add');
+  E.applyPlay(s, 0, ['9C'], 8);
+  ok(s.pendingWin === 0, 'ADD can play the final card');
+  E.applyRespond(s, 1, 'pass');
+  ok(s.phase === 'over' && s.winner === 0, 'final card via ADD wins when it survives');
+}
 /* --- Only the current responder may respond --- */
 {
-  const s = rig([['AS', 'AH', '9C'], ['2S', '3S', '4S'], ['5D', '6D', '7D']]);
-  s.players = [['AS', 'AH', '9C'], ['2S', '3S', '4S'], ['5D', '6D', '7D']].map((h, i) =>
-    ({ idx: i, id: 'p' + i, name: 'P' + i, isBot: false, difficulty: 'medium', connected: true, hand: h }));
-  E.applyPlay(s, 0, ['AS', 'AH']);
+  const s = rigPlayers(rig([[], [], []]), [['AS', 'AH', '9C'], ['2S', '3S', '4S'], ['5D', '6D', '7D']]);
+  E.applyPlay(s, 0, ['AS', 'AH'], 0);
   throwsCode(() => E.applyRespond(s, 2, 'check'), 'NOT_YOUR_RESPONSE', 'out-of-order response rejected');
   throwsCode(() => E.applyRespond(s, 0, 'pass'), 'NOT_YOUR_RESPONSE', 'player cannot respond to own play');
+}
+
+/* --- Repeated burn/add cycles stay stable (no state drift) --- */
+{
+  const deck = E.createDeck();
+  const hands = [deck.slice(0, 20), deck.slice(20, 36), deck.slice(36)];
+  const s = rigPlayers(rig([[], [], []]), hands);
+  for (let cycle = 0; cycle < 5; cycle++) {
+    const turnPlayer = s.turn;
+    const hand = s.players[turnPlayer].hand;
+    const n = Math.min(hand.length, E.pileSize(s) === 0 ? 2 : 1);
+    E.applyPlay(s, turnPlayer, hand.slice(0, n), cycle % 13);
+    for (let k = 1; k < 3; k++) E.applyRespond(s, (turnPlayer + k) % 3, 'pass');
+    ok(s.phase === 'decide' && s.decisionFor === turnPlayer, 'cycle ' + cycle + ': decision returns to maker');
+    E.applyDecision(s, turnPlayer, cycle % 2 === 0 ? 'add' : 'burn');
+    E.assertConservation(s);
+  }
+  ok(true, 'five repeated burn/add cycles conserve all 52 cards');
 }
 
 /* --- Privacy: public view never leaks other hands --- */
@@ -190,52 +254,84 @@ for (let n = 2; n <= 6; n++) {
   ok(cCards.every(c => !json.includes('"' + c + '"')), 'view for B contains none of C\'s cards');
   ok(viewB.players[1].hand.length === s.players[1].hand.length, 'view includes own hand');
   ok(viewB.players[0].hand === undefined && viewB.players[0].count === aCards.length, 'others shown as counts only');
+  ok(viewB.declarationMode === 'free', 'view exposes the declaration mode');
 }
 
-/* --- Hard bot: certain bluff is always checked --- */
+/* --- Bots: certain bluff detection + decision sanity --- */
 {
-  // Declared 3 Queens, but bot holds 2 Queens and 1 was revealed earlier:
-  // only 1 Queen could possibly be in the play -> certain bluff.
   const view = {
     phase: 'respond', lastPlay: { by: 0, count: 3, rank: 11, four: false },
-    pendingWin: null, pileSize: 3,
+    pendingWin: null, pileSize: 3, revealedCards: ['QD'],
     players: [
       { idx: 0, name: 'X', count: 5, difficulty: 'medium' },
       { idx: 1, name: 'Bot', count: 4, difficulty: 'hard', hand: ['QS', 'QH', '2C', '3D'] },
     ],
-    revealedCards: ['QD'],
-    log: [{ type: 'challenge', revealed: ['QD', '5S', '6S'], honest: false }],
+    log: [],
   };
-  ok(E.botRespond(view, 1, E.mulberry32(1)) === 'check', 'hard bot checks a provably impossible claim');
+  ok(E.botRespond(view, 1, E.mulberry32(1)) === 'check', 'hard bot checks a provably impossible claim (holds 2 of the 4 Queens)');
+  const dv = { pileSize: 20, players: [{ idx: 0, name: 'B', count: 9, difficulty: 'hard', hand: ['AS', '2C', '3D', '4H', '5S', '6C', '7D', '8H', '9S'] }] };
+  ok(E.botDecide(dv, 0, E.mulberry32(3)) === 'burn', 'hard bot burns a big pile');
+  for (const d of ['easy', 'medium', 'hard']) {
+    const v2 = { pileSize: 3, players: [{ idx: 0, name: 'B', count: 6, difficulty: d, hand: ['AS', 'AH', '3D', '4H', '5S', '6C'] }] };
+    const c = E.botDecide(v2, 0, E.mulberry32(9));
+    ok(c === 'burn' || c === 'add', d + ' bot decision is always a legal choice');
+  }
+  // Bot declarations: with no honest pair available, bots pad a single card
+  // with junk and declare a rank the cards do not match — a real bluff.
+  const distinctHand = ['KS', 'QH', '3D', '5C', '7S', '9H'];
+  const vHard = {
+    phase: 'play', pileSize: 0, declarationMode: 'free', expectedRank: null,
+    players: [{ idx: 0, name: 'B', count: 6, difficulty: 'hard', hand: distinctHand }],
+    revealedCards: [], log: [],
+  };
+  const bpHard = E.botPlay(vHard, 0, E.mulberry32(5));
+  ok(bpHard.cards.length >= 2 && bpHard.cards.some(c => E.parseCard(c).rank !== bpHard.rank),
+    'hard bot makes a deceptive declaration when it has no honest play');
+  let sawBluffDeclare = false;
+  for (let seed = 0; seed < 40 && !sawBluffDeclare; seed++) {
+    const v3 = {
+      phase: 'play', pileSize: 0, declarationMode: 'free', expectedRank: null,
+      players: [{ idx: 0, name: 'B', count: 6, difficulty: 'easy', hand: distinctHand }],
+      revealedCards: [], log: [],
+    };
+    const bp = E.botPlay(v3, 0, E.mulberry32(seed));
+    if (bp.cards.length && bp.cards.some(c => E.parseCard(c).rank !== bp.rank)) sawBluffDeclare = true;
+    ok(bp.cards.length >= 2, 'bot opening respects min-2 (seed ' + seed + ')');
+  }
+  ok(sawBluffDeclare, 'easy bot also makes deceptive declarations in free mode');
 }
 
-/* --- Bot fuzz: full games terminate, rules always obeyed, cards conserved --- */
+/* --- Bot fuzz: full games in BOTH declaration modes terminate, rules
+       obeyed, cards conserved, every phase has a defined actor --- */
 {
   const diffs = ['easy', 'medium', 'hard'];
   let games = 0, actions = 0;
-  for (let g = 0; g < 120; g++) {
+  for (let g = 0; g < 160; g++) {
     const n = 2 + (g % 5);
+    const mode = g % 2 === 0 ? 'free' : 'sequence';
     const defs = Array.from({ length: n }, (_, i) => ({ name: 'B' + i, isBot: true, difficulty: diffs[(g + i) % 3] }));
-    const rng = E.mulberry32(1000 + g);
-    const s = E.newGame(defs, { rng });
+    const rng = E.mulberry32(2000 + g);
+    const s = E.newGame(defs, { rng, declarationMode: mode });
     let guard = 0;
-    while (s.phase !== 'over' && guard < 20000) {
+    while (s.phase !== 'over' && guard < 30000) {
       guard++;
+      // Every live phase must name exactly one actor (no undefined waits).
+      if (s.phase === 'play') ok(s.turn !== null && s.players[s.turn].hand.length > 0, 'fuzz: play phase has an actor with cards');
+      if (s.phase === 'respond') ok(E.currentResponder(s) !== null, 'fuzz: respond phase has a responder');
+      if (s.phase === 'decide') ok(s.decisionFor !== null, 'fuzz: decide phase has an owner');
       if (s.phase === 'play') {
-        const view = E.publicView(s, s.turn);
-        view.players[s.turn].difficulty = defs[s.turn].difficulty;
-        const cards = E.botPlay(view, s.turn, rng);
-        E.applyPlay(s, s.turn, cards); // throws if illegal
-      } else {
+        const bp = E.botPlay(E.publicView(s, s.turn), s.turn, rng);
+        E.applyPlay(s, s.turn, bp.cards, bp.rank); // throws if illegal
+      } else if (s.phase === 'respond') {
         const r = E.currentResponder(s);
-        const view = E.publicView(s, r);
-        view.players[r].difficulty = defs[r].difficulty;
-        E.applyRespond(s, r, E.botRespond(view, r, rng));
+        E.applyRespond(s, r, E.botRespond(E.publicView(s, r), r, rng));
+      } else if (s.phase === 'decide') {
+        E.applyDecision(s, s.decisionFor, E.botDecide(E.publicView(s, s.decisionFor), s.decisionFor, rng));
       }
       E.assertConservation(s);
       actions++;
     }
-    ok(s.phase === 'over', 'bot game ' + g + ' (' + n + 'p) terminates with a winner');
+    ok(s.phase === 'over', 'bot game ' + g + ' (' + n + 'p, ' + mode + ') terminates with a winner');
     ok(s.players[s.winner].hand.length === 0, 'bot game ' + g + ' winner has empty hand');
     games++;
   }

@@ -20,6 +20,11 @@ const { WebSocketServer } = require('ws');
 const E = require('../engine.js');
 
 const PORT = process.env.PORT || 8080;
+/* Stall timers (overridable for tests): a response auto-passes, a play turn
+   auto-plays a simple legal move, a burn/add decision auto-burns. */
+const RESPOND_TIMEOUT_MS = Number(process.env.RESPOND_TIMEOUT_MS || 30000);
+const PLAY_TIMEOUT_MS = Number(process.env.PLAY_TIMEOUT_MS || 90000);
+const DECIDE_TIMEOUT_MS = Number(process.env.DECIDE_TIMEOUT_MS || 30000);
 const CLIENT_DIR = path.join(__dirname, '..', 'client');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const SERVE = new Set(['index.html', 'engine.js', 'manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png']);
@@ -27,6 +32,7 @@ const SERVE = new Set(['index.html', 'engine.js', 'manifest.json', 'sw.js', 'ico
 const httpServer = http.createServer((req, res) => {
   try {
     let p = decodeURIComponent((req.url || '/').split('?')[0]);
+    if (p === '/healthz') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, rooms: rooms.size })); }
     if (p === '/' || p === '') p = '/index.html';
     const name = path.basename(p);
     if (!SERVE.has(name)) { res.writeHead(404); return res.end('Not found'); }
@@ -55,9 +61,11 @@ function cleanName(n) {
   const s = String(n || '').replace(/[<>&"']/g, '').trim().slice(0, 16);
   return s || 'Player';
 }
-function makeRoom(hostName) {
+function makeRoom(hostName, declarationMode) {
   const room = {
+    id: crypto.randomUUID(), // internal room ID (the code is only the shareable key)
     code: newCode(), seats: [], state: null, started: false,
+    declarationMode: declarationMode === 'sequence' ? 'sequence' : 'free',
     hostSeat: 0, lastActivity: Date.now(), botTimer: null, turnTimer: null,
   };
   room.seats.push(makeSeat(hostName, false));
@@ -80,6 +88,7 @@ function sendError(seat, message) { send(seat, { type: 'error', message }); }
 function lobbyPayload(room, forSeat) {
   return {
     type: 'lobby', code: room.code, youIdx: seatIdx(room, forSeat), youAreHost: seatIdx(room, forSeat) === room.hostSeat,
+    declarationMode: room.declarationMode,
     players: room.seats.map((s, i) => ({ name: s.name, isBot: s.isBot, difficulty: s.difficulty, connected: s.connected || s.isBot, isHost: i === room.hostSeat })),
   };
 }
@@ -106,25 +115,33 @@ function anyHumanConnected(room) { return room.seats.some(s => !s.isBot && s.con
 /* ---------------- game flow ---------------- */
 function startGame(room) {
   const defs = room.seats.map(s => ({ name: s.name, isBot: s.isBot, difficulty: s.difficulty }));
-  room.state = E.newGame(defs);
+  room.state = E.newGame(defs, { declarationMode: room.declarationMode });
   room.started = true;
   room.lastActivity = Date.now();
   broadcastViews(room);
   schedule(room);
+}
+function currentActor(room) {
+  const s = room.state;
+  if (!s || s.phase === 'over') return null;
+  if (s.phase === 'play') return s.turn;
+  if (s.phase === 'respond') return E.currentResponder(s);
+  if (s.phase === 'decide') return s.decisionFor;
+  return null;
 }
 function schedule(room) {
   clearTimeout(room.botTimer); clearTimeout(room.turnTimer);
   if (!room.state || room.state.phase === 'over') return;
   if (!anyHumanConnected(room)) return; // pause until someone is watching
   const s = room.state;
-  const actor = s.phase === 'play' ? s.turn : E.currentResponder(s);
+  const actor = currentActor(room);
   if (actor === null) return;
   const seat = room.seats[actor];
   if (seat.isBot) {
     room.botTimer = setTimeout(() => botAct(room, actor), 650 + Math.random() * 550);
   } else {
     // Humans get time to think; timers only fire if they stall (or are away).
-    const ms = s.phase === 'respond' ? 30000 : 90000;
+    const ms = s.phase === 'respond' ? RESPOND_TIMEOUT_MS : s.phase === 'decide' ? DECIDE_TIMEOUT_MS : PLAY_TIMEOUT_MS;
     room.turnTimer = setTimeout(() => autoAct(room, actor), ms);
   }
 }
@@ -133,9 +150,12 @@ function botAct(room, idx) {
   if (!s || s.phase === 'over') return;
   try {
     if (s.phase === 'play' && s.turn === idx) {
-      E.applyPlay(s, idx, E.botPlay(E.publicView(s, idx), idx));
+      const bp = E.botPlay(E.publicView(s, idx), idx);
+      E.applyPlay(s, idx, bp.cards, bp.rank);
     } else if (s.phase === 'respond' && E.currentResponder(s) === idx) {
       E.applyRespond(s, idx, E.botRespond(E.publicView(s, idx), idx));
+    } else if (s.phase === 'decide' && s.decisionFor === idx) {
+      E.applyDecision(s, idx, E.botDecide(E.publicView(s, idx), idx));
     } else return;
   } catch (e) { console.error('bot error', e); return; }
   room.lastActivity = Date.now();
@@ -149,12 +169,14 @@ function autoAct(room, idx) {
   try {
     if (s.phase === 'respond' && E.currentResponder(s) === idx) {
       E.applyRespond(s, idx, 'pass'); // stalled response = pass
+    } else if (s.phase === 'decide' && s.decisionFor === idx) {
+      E.applyDecision(s, idx, 'burn'); // stalled decision = burn the pile (safe default)
     } else if (s.phase === 'play' && s.turn === idx) {
       // Stalled turn: play a simple legal move for them (easy-bot logic).
       const v = E.publicView(s, idx);
       const saved = v.players[idx].difficulty; v.players[idx].difficulty = 'easy';
-      const cards = E.botPlay(v, idx); v.players[idx].difficulty = saved;
-      E.applyPlay(s, idx, cards);
+      const bp = E.botPlay(v, idx); v.players[idx].difficulty = saved;
+      E.applyPlay(s, idx, bp.cards, bp.rank);
     } else return;
   } catch (e) { console.error('auto-act error', e); return; }
   if (seat) send(seat, { type: 'error', message: 'You were away, so the game moved for you.' });
@@ -182,10 +204,10 @@ wss.on('connection', (ws) => {
       switch (m.type) {
         case 'create': {
           if (room) return sendError(seat || { ws }, 'Already in a room.');
-          room = makeRoom(m.name);
+          room = makeRoom(m.name, m.declarationMode);
           seat = room.seats[0];
           seat.ws = ws; seat.connected = true;
-          send(seat, { type: 'joined', code: room.code, idx: 0, token: seat.token, isHost: true });
+          send(seat, { type: 'joined', code: room.code, roomId: room.id, idx: 0, token: seat.token, isHost: true });
           broadcastLobby(room);
           break;
         }
@@ -235,7 +257,8 @@ wss.on('connection', (ws) => {
         case 'start': {
           if (!room || !seat) return;
           if (seatIdx(room, seat) !== room.hostSeat) return sendError(seat, 'Only the host can start the game.');
-          if (room.seats.length < 2) return sendError(seat, 'Need at least 2 players to start.');
+          if (room.started) return sendError(seat, 'The game has already started.');
+          if (room.seats.length < 3) return sendError(seat, 'Need at least 3 players to start. Invite more friends or add bots to fill seats.');
           startGame(room);
           break;
         }
@@ -243,7 +266,18 @@ wss.on('connection', (ws) => {
           if (!room || !seat || !room.state) return;
           if (dedupe(seat, m.actionId)) return; // duplicate request: ignore silently
           const idx = seatIdx(room, seat);
-          try { E.applyPlay(room.state, idx, Array.isArray(m.cards) ? m.cards.slice(0, 4) : []); }
+          const declaredRank = Number.isInteger(m.declaredRank) ? m.declaredRank : -1;
+          try { E.applyPlay(room.state, idx, Array.isArray(m.cards) ? m.cards.slice(0, 4) : [], declaredRank); }
+          catch (e) { return sendError(seat, friendlyErr(e)); }
+          room.lastActivity = Date.now();
+          broadcastViews(room); schedule(room);
+          break;
+        }
+        case 'decide': {
+          if (!room || !seat || !room.state) return;
+          if (dedupe(seat, m.actionId)) return;
+          const idx = seatIdx(room, seat);
+          try { E.applyDecision(room.state, idx, m.choice === 'add' ? 'add' : 'burn'); }
           catch (e) { return sendError(seat, friendlyErr(e)); }
           room.lastActivity = Date.now();
           broadcastViews(room); schedule(room);
@@ -277,7 +311,7 @@ wss.on('connection', (ws) => {
       room = r; seat = s;
       if (seat.ws && seat.ws !== ws) { try { seat.ws.close(); } catch (e) {} }
       seat.ws = ws; seat.connected = true;
-      send(seat, { type: 'joined', code: room.code, idx: seatIdx(room, seat), token: seat.token, isHost: seatIdx(room, seat) === room.hostSeat });
+      send(seat, { type: 'joined', code: room.code, roomId: room.id, idx: seatIdx(room, seat), token: seat.token, isHost: seatIdx(room, seat) === room.hostSeat });
       if (room.started && room.state) { broadcastViews(room); schedule(room); }
       else broadcastLobby(room);
       if (isNew) room.lastActivity = Date.now();
@@ -321,6 +355,8 @@ function friendlyErr(e) {
     BAD_COUNT: 'You can play 1 to 4 cards.',
     DUPLICATE_CARD: 'Pick each card only once.',
     WRONG_PHASE: 'That move is not possible right now.',
+    BAD_DECLARATION: 'That declaration is not allowed right now.',
+    NOT_YOUR_DECISION: 'It is not your decision to make.',
   };
   return map[e.code] || 'Move not allowed.';
 }

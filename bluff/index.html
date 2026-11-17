@@ -90,18 +90,37 @@
   }
 
   /* ---------- table ---------- */
-  #gameScreen { max-width: 640px; margin: 0 auto; padding: 0 10px 170px; }
+  #gameScreen { max-width: 640px; margin: 0 auto; padding: 0 10px 300px; }
   .felt {
     margin-top: 10px; border-radius: 22px; padding: 14px 10px 18px;
     background: radial-gradient(ellipse at 50% 38%, #1a7a45 0%, #0f5a30 55%, #0a4225 100%);
     box-shadow: inset 0 0 0 3px rgba(242,193,78,.25), inset 0 0 60px rgba(0,0,0,.45), 0 14px 30px rgba(0,0,0,.4);
     min-height: 300px; position: relative;
   }
-  .opponents { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: none; }
-  .opponents::-webkit-scrollbar { display: none; }
+  .opponents { position: absolute; inset: 0; pointer-events: none; }
   .opp {
-    flex: 0 0 auto; min-width: 86px; max-width: 110px; text-align: center; padding: 8px 6px 7px;
-    border-radius: 14px; background: rgba(0,0,0,.28); border: 2px solid transparent; position: relative;
+    position: absolute; width: 94px; text-align: center; padding: 8px 6px 7px; pointer-events: auto;
+    border-radius: 14px; background: rgba(0,0,0,.32); border: 2px solid transparent;
+  }
+  .opponents.n1 .slot0 { top: 6px; left: 50%; transform: translateX(-50%); }
+  .opponents.n2 .slot0 { top: 6px; left: 6px; }
+  .opponents.n2 .slot1 { top: 6px; right: 6px; }
+  .opponents.n3 .slot0 { top: 6px; left: 50%; transform: translateX(-50%); }
+  .opponents.n3 .slot1 { left: 4px; top: 47%; }
+  .opponents.n3 .slot2 { right: 4px; top: 47%; }
+  .opponents.n4 .slot0 { top: 6px; left: 6px; }
+  .opponents.n4 .slot1 { top: 6px; right: 6px; }
+  .opponents.n4 .slot2 { left: 4px; top: 54%; }
+  .opponents.n4 .slot3 { right: 4px; top: 54%; }
+  .opponents.n5 .slot0 { top: 6px; left: 50%; transform: translateX(-50%); }
+  .opponents.n5 .slot1 { top: 6px; left: 6px; }
+  .opponents.n5 .slot2 { top: 6px; right: 6px; }
+  .opponents.n5 .slot3 { left: 4px; top: 55%; }
+  .opponents.n5 .slot4 { right: 4px; top: 55%; }
+  .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 410px; }
+  @media (max-width: 350px) {
+    .opp { width: 82px; padding: 6px 4px 5px; }
+    .opp .avatar { width: 34px; height: 34px; font-size: 13px; }
   }
   .opp.active { border-color: #f2c14e; box-shadow: 0 0 0 3px rgba(242,193,78,.25), 0 0 18px rgba(242,193,78,.35); }
   .opp.responding { border-color: #6ec1ff; }
@@ -115,7 +134,11 @@
   .opp .dot.off { background: #e05252; }
   .opp .thinking { font-size: 10px; color: #ffe9a8; font-weight: 700; min-height: 13px; }
 
-  .center-area { text-align: center; padding: 6px 0 2px; }
+  .center-area { text-align: center; padding: 112px 2px 2px; }
+  .felt.oc3 .center-area, .felt.oc4 .center-area, .felt.oc5 .center-area { padding-left: 100px; padding-right: 100px; }
+  @media (max-width: 350px) {
+    .felt.oc3 .center-area, .felt.oc4 .center-area, .felt.oc5 .center-area { padding-left: 88px; padding-right: 88px; }
+  }
   .pile-wrap { position: relative; width: 92px; height: 104px; margin: 4px auto 2px; }
   .pile-card {
     position: absolute; inset: 0; border-radius: 9px;
@@ -172,6 +195,16 @@
   .pcard:disabled { cursor: default; }
   .actions { display: flex; gap: 10px; margin-top: 10px; }
   .actions .btn { flex: 1; }
+  .btn.ember { background: #e07840; color: #fff; box-shadow: 0 3px 0 #8a3c14, 0 6px 14px rgba(0,0,0,.35); }
+  .decl { margin-top: 2px; }
+  .selInfo { text-align: center; font-size: 13.5px; color: #cfe8d4; min-height: 19px; }
+  .selInfo b { color: #f2c14e; }
+  .rankGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 7px; }
+  .rankChip {
+    padding: 9px 0; border-radius: 9px; background: rgba(255,255,255,.1); color: #dcefe2;
+    border: 1.5px solid rgba(255,255,255,.28); font-weight: 800; font-size: 15px;
+  }
+  .rankChip.on { background: #f2c14e; color: #231a02; border-color: #ffe9a8; }
 
   /* ---------- lobby / modal / winner ---------- */
   .playerlist { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
@@ -237,7 +270,12 @@
     <div class="seg" id="botDiffSeg">
       <button data-v="easy">Easy</button><button data-v="medium" class="on">Medium</button><button data-v="hard">Hard</button>
     </div>
-    <div style="height:14px"></div>
+    <label class="lbl">Declaration style (bot games and rooms you create)</label>
+    <div class="seg" id="declSeg">
+      <button data-v="free" class="on">Free bluff</button><button data-v="sequence">Sequence</button>
+    </div>
+    <p class="sub" style="margin-top:8px">Free bluff: declare any rank you like. Sequence: the first play of a round declares any rank, then each play must declare the next rank up.</p>
+    <div style="height:6px"></div>
     <button class="btn big" id="playBotsBtn">Start bot game</button>
   </div>
 
@@ -262,7 +300,7 @@
       <button class="btn ghost" id="resumeBtn">Rejoin last room</button>
     </div>
   </div>
-  <p class="footer-note">One 52-card deck · 2–6 players · Opening play needs at least 2 cards · Four of a kind can burn the pile</p>
+  <p class="footer-note">One 52-card deck · Rooms hold 3–6 players · Opening play needs at least 2 cards · Declare any rank — if everyone passes, you burn the pile or add more</p>
 </div>
 
 <!-- ================= LOBBY ================= -->
@@ -277,13 +315,15 @@
     <div style="height:12px"></div>
     <div class="row">
       <button class="btn secondary small" id="copyLinkBtn">Copy invite link</button>
+      <button class="btn secondary small" id="copyCodeBtn">Copy code</button>
       <button class="btn secondary small" id="shareBtn">Share…</button>
       <button class="btn secondary small" id="fbBtn">Facebook</button>
     </div>
-    <p class="sub" style="margin-top:10px">Friends open the link, type their name, and tap Join. If the link opens inside an app and looks stuck, open it in Chrome or Safari instead.</p>
+    <p class="sub" style="margin-top:10px" id="lobbyModeNote">Friends open the link, type their name, and tap Join. If the link opens inside an app and looks stuck, open it in Chrome or Safari instead.</p>
   </div>
   <div class="card-panel">
     <h2>Players</h2>
+    <p class="sub" id="lobbyStatus" style="margin-top:2px"></p>
     <div class="playerlist" id="lobbyPlayers"></div>
     <div id="hostControls">
       <label class="lbl">Add a bot to fill a seat</label>
@@ -314,7 +354,7 @@
     <button class="iconbtn" id="leaveGameBtn" title="Leave game">✕</button>
   </div>
   <div id="gameScreen">
-    <div class="felt">
+    <div class="felt" id="felt">
       <div class="opponents" id="opponents"></div>
       <div class="center-area">
         <div id="pileArea"></div>
@@ -327,6 +367,10 @@
   <div class="mybar">
     <div class="mybar-inner">
       <div class="turn-banner" id="turnBanner"></div>
+      <div class="decl hidden" id="declPanel">
+        <div class="selInfo" id="selInfo"></div>
+        <div class="rankGrid" id="rankGrid"></div>
+      </div>
       <div class="hand" id="myHand"></div>
       <div class="actions" id="actionBar"></div>
     </div>
@@ -341,8 +385,8 @@
     <h3>The basics</h3>
     <ul>
       <li>One 52-card deck is dealt out completely to 2–6 players.</li>
-      <li>Cards must be declared in a fixed sequence: <b>Aces, 2s, 3s … Kings</b>, then it wraps around. Each new round restarts at Aces.</li>
-      <li>On your turn, play 1–4 cards face down and declare them as that many of the current rank — for example "two 7s". They don't have to really be 7s. That's the bluff.</li>
+      <li>On your turn, play 1–4 cards face down, then <b>declare any rank you like</b> — select two Kings and declare "two Queens" if you dare. Your real cards stay secret; only the count and your declared rank are public.</li>
+      <li><b>Sequence style</b> (chosen when the game is created): the first play of a round declares any rank, and each later play in that round must declare the next rank up.</li>
     </ul>
     <h3>Opening rule</h3>
     <ul>
@@ -352,15 +396,20 @@
     <h3>Check (challenge) or Pass</h3>
     <ul>
       <li>After every play, each other player in turn order chooses <b>CHECK</b> (challenge it) or <b>PASS</b>.</li>
-      <li>The first CHECK flips the played cards: if they really are the declared rank, the play was honest and the <b>checker takes the whole pile</b>. If even one card is wrong, it was a bluff and the <b>player who played takes the whole pile</b>.</li>
-      <li>If everyone passes, the play stands, the pile stays, and the sequence moves to the next rank.</li>
+      <li>The first CHECK flips the played cards and compares them with the <b>declaration</b>: if they really are the declared rank, the play was honest and the <b>checker takes the whole pile</b>. If even one card is wrong, it was a bluff and the <b>player who played takes the whole pile</b>.</li>
       <li>Whoever wins a challenge leads the next round.</li>
     </ul>
-    <h3>Four of a kind — the burn</h3>
+    <h3>Everyone passed? Burn the pile — or add more</h3>
     <ul>
-      <li>Playing 4 cards declares four of a kind of the current rank.</li>
+      <li>If <b>everyone passes</b> your play, the turn comes back to you with a choice:</li>
+      <li><b>BURN PILE</b> — the whole pile leaves the game for good (burned cards never come back), and you open a fresh play. The opening rule applies again: at least 2 cards.</li>
+      <li><b>ADD MORE CARDS</b> — keep the pile and play more cards on top of it, with a new declaration. The others respond again — and if they all pass again, you choose again.</li>
+    </ul>
+    <h3>Four of a kind — the instant burn</h3>
+    <ul>
+      <li>Playing 4 cards declares four of a kind of your chosen rank.</li>
       <li>If someone CHECKs, the normal challenge above decides who takes the pile.</li>
-      <li>If <b>everyone PASSes</b>, the claim is believed and the <b>whole pile is burned</b> — those cards leave the game for good. The player who played the four leads the next round.</li>
+      <li>If <b>everyone PASSes</b>, the claim is believed and the <b>whole pile is burned automatically</b> — no choice needed. You open the next round.</li>
     </ul>
     <h3>Winning</h3>
     <ul>
@@ -368,7 +417,7 @@
       <li>If a CHECK catches your last play as a bluff, you take the pile and the game goes on.</li>
     </ul>
     <h3>Example turn</h3>
-    <p>The pile is empty, so the round starts at Aces and the opening needs 2+ cards. Maria plays 3 cards and declares "three Aces" (she really has two Aces and a sneaky 9). Tom PASSes. You hold one Ace, so her claim looks squeezed — you CHECK. The cards flip: A, A, 9 — a bluff! Maria takes the whole pile, and you lead the next round.</p>
+    <p>The pile is empty, so the opening needs 2+ cards. Maria plays 2 cards — really two Kings — but declares "two Queens". Tom PASSes. You hold three Queens yourself, so her claim is impossible — you CHECK. The cards flip: K, K — a bluff! Maria takes the whole pile, and you lead the next round. If everyone had passed instead, Maria would choose: burn the pile and open fresh, or add more cards on top.</p>
     <div style="height:8px"></div>
     <button class="btn big" id="closeHowBtn">Got it</button>
   </div>
@@ -426,7 +475,7 @@ function showWait(title, text, cancelable){
 function hideWait(){ $('waitModal').classList.add('hidden'); }
 
 /* ================= settings ================= */
-const settings = Object.assign({ sound: true, volume: 0.7, name: '', server: '' },
+const settings = Object.assign({ sound: true, volume: 0.7, name: '', server: '', declMode: 'free' },
   JSON.parse(localStorage.getItem('bluff-settings') || '{}'));
 function saveSettings(){ localStorage.setItem('bluff-settings', JSON.stringify(settings)); }
 
@@ -471,6 +520,8 @@ let mode = null;               // 'bots' | 'online'
 let local = null;              // bot mode: { state }
 let view = null;               // last publicView rendered
 let selected = new Set();
+let selectedRank = null;       // the rank the player chose to declare
+let turnKey = '';              // detects a fresh turn to reset declaration state
 let botTimer = null;
 let lastEventSig = '';
 let gameOverShown = false;
@@ -491,6 +542,8 @@ function friendlyErr(e){
     BAD_COUNT: 'You can play 1 to 4 cards.',
     DUPLICATE_CARD: 'Pick each card only once.',
     WRONG_PHASE: 'That move is not possible right now.',
+    BAD_DECLARATION: 'That declaration is not allowed right now.',
+    NOT_YOUR_DECISION: 'It is not your decision to make.',
   };
   return map[e.code] || e.message || 'Move not allowed.';
 }
@@ -506,8 +559,10 @@ function eventText(ev, v){
     case 'challenge': return nm(ev.by) + ' CHECKED ' + nm(ev.against) + ': <span class="reveal">' + ev.revealed.map(miniCard).join('') + '</span> ' +
       (ev.honest ? '— <b>honest!</b> ' + nm(ev.by) + ' takes the pile.' : '— <b>BLUFF!</b> ' + nm(ev.against) + ' takes the pile.');
     case 'four-burn': return 'Everyone passed — the four of a kind is believed! <b>' + ev.burned + ' cards burned</b>, out of the game.';
-    case 'round': return 'Round ' + ev.round + ': ' + nm(ev.leader) + ' leads at Aces.';
-    case 'accepted': return 'Everyone passed — the play stands.';
+    case 'decide': return 'Everyone passed — <b>' + nm(ev.by) + '</b> decides: burn the pile or add more cards.';
+    case 'burn': return nm(ev.by) + ' <b>burned the pile</b> — ' + ev.burned + ' cards out of the game. Fresh start.';
+    case 'add': return nm(ev.by) + ' adds more cards to the pile…';
+    case 'round': return 'Round ' + ev.round + ': ' + nm(ev.leader) + ' leads.';
     case 'win': return '<b>' + nm(ev.by) + ' wins the game!</b>';
     default: return '';
   }
@@ -520,11 +575,12 @@ function soundCue(v){
   lastEventSig = sig;
   const me = myIdx();
   if (last.type === 'challenge') { sfx.check(); setTimeout(() => (last.honest === (last.by !== me) ? sfx.good() : sfx.bad()), 200); }
-  else if (last.type === 'four-burn') sfx.burn();
+  else if (last.type === 'four-burn' || last.type === 'burn') sfx.burn();
   else if (last.type === 'win') { v.winner === me ? sfx.win() : sfx.lose(); }
   else if (last.type === 'play' && last.by !== me) sfx.place();
   if (v.phase === 'play' && v.turn === me) sfx.turn();
   if (v.phase === 'respond' && v.responder === me) sfx.turn();
+  if (v.phase === 'decide' && v.decisionFor === me) sfx.turn();
 }
 
 /* ================= game rendering (shared by both modes) ================= */
@@ -532,20 +588,22 @@ function renderGame(v){
   view = v;
   const me = myIdx();
   soundCue(v);
-  // opponents in table order starting after me
+  // opponents in table order starting after me, seated around the table
   const oppHtml = [];
   for (let k = 1; k < v.players.length; k++) {
     const p = v.players[(me + k) % v.players.length];
-    const active = v.phase === 'play' && v.turn === p.idx;
+    const active = (v.phase === 'play' && v.turn === p.idx) || (v.phase === 'decide' && v.decisionFor === p.idx);
     const responding = v.phase === 'respond' && v.responder === p.idx;
-    oppHtml.push('<div class="opp' + (active ? ' active' : '') + (responding ? ' responding' : '') + '">' +
+    oppHtml.push('<div class="opp slot' + (k - 1) + (active ? ' active' : '') + (responding ? ' responding' : '') + '">' +
       '<span class="dot' + (p.connected ? '' : ' off') + '"></span>' +
       '<div class="avatar" style="background:' + AVATAR_COLORS[p.idx % AVATAR_COLORS.length] + '">' + esc(initials(p.name)) + '</div>' +
-      '<div class="nm">' + esc(p.name) + (p.isBot ? ' · ' + esc(p.difficulty) : '') + '</div>' +
-      '<div class="ct">' + p.count + ' card' + (p.count === 1 ? '' : 's') + '</div>' +
-      '<div class="thinking">' + (active ? 'playing…' : responding ? 'deciding…' : '') + '</div></div>');
+      '<div class="nm">' + esc(p.name) + '</div>' +
+      '<div class="ct">' + p.count + ' card' + (p.count === 1 ? '' : 's') + (p.isBot ? ' · ' + esc(p.difficulty) : '') + '</div>' +
+      '<div class="thinking">' + (active ? (v.phase === 'decide' ? 'burn or add…' : 'playing…') : responding ? 'deciding…' : '') + '</div></div>');
   }
   $('opponents').innerHTML = oppHtml.join('');
+  $('opponents').className = 'opponents n' + oppHtml.length;
+  $('felt').className = 'felt oc' + oppHtml.length;
   // pile
   if (v.pileSize === 0) {
     $('pileArea').innerHTML = '<div class="pile-empty">Pile is empty</div>';
@@ -562,12 +620,21 @@ function renderGame(v){
     $('declareLine').innerHTML = esc(v.players[lp.by].name) + ' declared <span class="rank">' + lp.count + ' × ' + RANK_NAMES[lp.rank] + '</span>' +
       (v.pendingWin === lp.by ? ' — <span style="color:#ff9d7a">playing to WIN!</span>' : '');
   } else {
-    $('declareLine').innerHTML = v.pileSize === 0 ? 'New round — starts at <span class="rank">Aces</span>' : '';
+    $('declareLine').innerHTML = v.pileSize === 0 ? 'New round — <span class="rank">fresh pile</span>' : '';
   }
-  $('nextRankLine').innerHTML = v.phase === 'over' ? '' :
-    (v.phase === 'play'
-      ? 'Next declaration: <b>' + RANK_NAMES[v.nextRank] + '</b>' + (v.pileSize === 0 ? ' · opening needs <b>2+ cards</b>' : '') + (v.burnedCount ? ' · ' + v.burnedCount + ' burned' : '')
-      : 'Responses in progress…' + (v.burnedCount ? ' · ' + v.burnedCount + ' burned' : ''));
+  const burnedNote = v.burnedCount ? ' · ' + v.burnedCount + ' burned' : '';
+  if (v.phase === 'over') $('nextRankLine').innerHTML = '';
+  else if ((v.declarationMode || 'free') === 'sequence') {
+    $('nextRankLine').innerHTML = (v.expectedRank !== null && v.expectedRank !== undefined)
+      ? 'Sequence: next declaration must be <b>' + RANK_NAMES[v.expectedRank] + '</b>' + burnedNote
+      : 'Sequence: open the round with any rank' + burnedNote;
+  } else if (v.phase === 'decide') {
+    $('nextRankLine').innerHTML = 'Waiting for the burn / add decision…' + burnedNote;
+  } else if (v.phase === 'respond') {
+    $('nextRankLine').innerHTML = 'Responses in progress…' + burnedNote;
+  } else {
+    $('nextRankLine').innerHTML = 'Free declaration — declare any rank' + (v.pileSize === 0 ? ' · opening needs <b>2+ cards</b>' : '') + burnedNote;
+  }
   // events: latest two
   const evs = v.log.slice(-2).map(ev => eventText(ev, v)).filter(Boolean);
   $('eventLine').innerHTML = evs.join('<br>') || 'The game is on. Good luck!';
@@ -584,6 +651,12 @@ function renderGame(v){
     const c = el.dataset.card;
     if (selected.has(c)) selected.delete(c);
     else { if (selected.size >= 4) { toast('You can play at most 4 cards.'); return; } selected.add(c); sfx.select(); }
+    // If all selected cards share one rank, pre-pick it as the declaration
+    // (the player can still change it — that is the bluff).
+    if (selected.size > 0) {
+      const rs = Array.from(selected).map(x => parseCard(x).rank);
+      if (rs.every(r => r === rs[0])) selectedRank = rs[0];
+    }
     renderGame(view);
   }));
   // banner + actions
@@ -591,6 +664,7 @@ function renderGame(v){
   bar.innerHTML = '';
   banner.className = 'turn-banner';
   if (v.phase === 'over') {
+    $('declPanel').classList.add('hidden');
     banner.textContent = 'Game over';
     if (!gameOverShown) { gameOverShown = true; setTimeout(showWinner, 650); }
     return;
@@ -598,18 +672,61 @@ function renderGame(v){
   if (v.phase === 'play') {
     if (myTurn) {
       banner.className = 'turn-banner mine';
-      banner.innerHTML = 'Your turn — declare ' + RANK_NAMES[v.nextRank] + (v.minPlay > 1 ? ' (opening: at least ' + v.minPlay + ' cards)' : '');
+      const key = v.moveNo + '|' + v.turn + '|' + v.round;
+      const forced = (v.declarationMode === 'sequence' && v.expectedRank !== null && v.expectedRank !== undefined) ? v.expectedRank : null;
+      if (key !== turnKey) { turnKey = key; if (forced !== null) selectedRank = forced; }
+      if (forced !== null) selectedRank = forced;
+      banner.innerHTML = v.pileSize === 0
+        ? 'Your turn — opening play: select at least ' + (v.minPlay || 2) + ' cards'
+        : 'Your turn — select cards to play';
+      // Declaration panel: what you selected vs what you declare.
+      $('declPanel').classList.remove('hidden');
+      const selCards = Array.from(selected);
+      const selText = selCards.length
+        ? 'Selected: <b>' + selCards.map(c => RANKS[parseCard(c).rank] + glyph(c)).join(' ') + '</b>'
+        : 'Tap cards in your hand to select them.';
+      if (forced !== null) {
+        $('rankGrid').classList.add('hidden');
+        $('selInfo').innerHTML = selText + '<br>Sequence rules: you must declare <b>' + RANK_NAMES[forced] + '</b>.';
+      } else {
+        $('rankGrid').classList.remove('hidden');
+        $('selInfo').innerHTML = selText + (selCards.length
+          ? ' &nbsp;·&nbsp; Declare as: <b>' + (selectedRank !== null ? RANK_NAMES[selectedRank] : '— pick a rank below —') + '</b>'
+          : '');
+        $('rankGrid').querySelectorAll('.rankChip').forEach(ch => {
+          ch.classList.toggle('on', Number(ch.dataset.rank) === selectedRank);
+        });
+      }
       const n = selected.size;
       const btn = document.createElement('button');
       btn.className = 'btn big';
-      btn.textContent = n ? 'Play ' + n + ' card' + (n === 1 ? '' : 's') + ' as ' + RANK_NAMES[v.nextRank] : 'Select cards to play';
-      btn.disabled = !(n >= (v.minPlay || 1) && n <= 4);
+      btn.textContent = !n ? 'Select cards to play'
+        : selectedRank === null ? 'Pick a declaration rank'
+        : 'Play ' + n + ' card' + (n === 1 ? '' : 's') + ' as ' + RANK_NAMES[selectedRank];
+      btn.disabled = !(n >= (v.minPlay || 1) && n <= 4 && selectedRank !== null);
       btn.addEventListener('click', doPlay);
       bar.appendChild(btn);
     } else {
+      $('declPanel').classList.add('hidden');
       banner.textContent = 'Waiting for ' + v.players[v.turn].name + '…';
     }
+  } else if (v.phase === 'decide') {
+    $('declPanel').classList.add('hidden');
+    if (v.decisionFor === me) {
+      banner.className = 'turn-banner mine';
+      banner.innerHTML = 'Everyone passed! <span class="gold">Burn the pile</span> or <span class="gold">add more cards</span>?';
+      const burn = document.createElement('button');
+      burn.className = 'btn ember'; burn.textContent = 'Burn pile (' + v.pileSize + ')';
+      burn.addEventListener('click', () => doDecide('burn'));
+      const add = document.createElement('button');
+      add.className = 'btn'; add.textContent = 'Add more cards';
+      add.addEventListener('click', () => doDecide('add'));
+      bar.appendChild(burn); bar.appendChild(add);
+    } else {
+      banner.textContent = 'Waiting for ' + v.players[v.decisionFor].name + ' to burn the pile or add more…';
+    }
   } else if (v.phase === 'respond') {
+    $('declPanel').classList.add('hidden');
     const lp = v.lastPlay;
     if (v.responder === me) {
       banner.className = 'turn-banner mine';
@@ -642,13 +759,24 @@ function showWinner(){
 /* ================= actions ================= */
 function doPlay(){
   const cards = Array.from(selected);
+  if (selectedRank === null) { toast('Pick the rank you want to declare first.'); return; }
   if (mode === 'bots') {
-    try { BluffEngine.applyPlay(local.state, 0, cards); }
+    try { BluffEngine.applyPlay(local.state, 0, cards, selectedRank); }
     catch (e) { toast(friendlyErr(e)); return; }
-    selected.clear(); sfx.place(); driveBots();
+    selected.clear(); selectedRank = null; sfx.place(); driveBots();
   } else {
-    onlineSend({ type: 'play', cards });
-    selected.clear();
+    onlineSend({ type: 'play', cards, declaredRank: selectedRank });
+    selected.clear(); selectedRank = null;
+  }
+}
+function doDecide(choice){
+  if (mode === 'bots') {
+    try { BluffEngine.applyDecision(local.state, 0, choice); }
+    catch (e) { toast(friendlyErr(e)); return; }
+    if (choice === 'burn') sfx.burn();
+    driveBots();
+  } else {
+    onlineSend({ type: 'decide', choice });
   }
 }
 function doRespond(action){
@@ -669,9 +797,9 @@ function startBotGame(){
   settings.name = name; saveSettings();
   const defs = [{ name, isBot: false }];
   for (let i = 0; i < botCount; i++) defs.push({ name: BOT_NAMES[i % BOT_NAMES.length], isBot: true, difficulty: botDiff });
-  local = { state: BluffEngine.newGame(defs) };
-  mode = 'bots'; gameOverShown = false; lastEventSig = ''; selected.clear();
-  $('roomChip').textContent = 'vs Bots · ' + botDiff;
+  local = { state: BluffEngine.newGame(defs, { declarationMode: settings.declMode || 'free' }) };
+  mode = 'bots'; gameOverShown = false; lastEventSig = ''; selected.clear(); selectedRank = null; turnKey = '';
+  $('roomChip').textContent = 'vs Bots · ' + botDiff + ' · ' + ((settings.declMode || 'free') === 'sequence' ? 'Sequence' : 'Free bluff');
   showScreen('game');
   driveBots();
 }
@@ -681,7 +809,7 @@ function driveBots(){
   const s = local.state;
   renderGame(BluffEngine.publicView(s, 0));
   if (s.phase === 'over') return;
-  const actor = s.phase === 'play' ? s.turn : BluffEngine.currentResponder(s);
+  const actor = s.phase === 'play' ? s.turn : s.phase === 'decide' ? s.decisionFor : BluffEngine.currentResponder(s);
   if (actor === null || actor === 0) return;
   botTimer = setTimeout(() => {
     if (mode !== 'bots' || !local) return;
@@ -689,13 +817,17 @@ function driveBots(){
     try {
       if (st.phase === 'play' && st.turn !== 0) {
         const v = BluffEngine.publicView(st, st.turn);
-        BluffEngine.applyPlay(st, st.turn, BluffEngine.botPlay(v, st.turn));
+        const bp = BluffEngine.botPlay(v, st.turn);
+        BluffEngine.applyPlay(st, st.turn, bp.cards, bp.rank);
       } else if (st.phase === 'respond') {
         const r = BluffEngine.currentResponder(st);
         if (r !== null && r !== 0) {
           const v = BluffEngine.publicView(st, r);
           BluffEngine.applyRespond(st, r, BluffEngine.botRespond(v, r));
         }
+      } else if (st.phase === 'decide' && st.decisionFor !== 0) {
+        const v = BluffEngine.publicView(st, st.decisionFor);
+        BluffEngine.applyDecision(st, st.decisionFor, BluffEngine.botDecide(v, st.decisionFor));
       }
     } catch (e) { console.error('bot error', e); }
     driveBots();
@@ -708,9 +840,16 @@ const online = {
   ws: null, roomCode: null, myIdx: null, isHost: false,
   playerToken: null, started: false, seq: 0, reconnectTries: 0,
 };
+function defaultServerUrl(){
+  // If this page was served by the game server itself, the WebSocket lives
+  // on the same host — no configuration needed.
+  if (location.protocol === 'http:' || location.protocol === 'https:')
+    return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  return 'ws://localhost:8080';
+}
 function serverUrl(){
   const v = ($('serverInput').value || '').trim();
-  return v || 'ws://localhost:8080';
+  return v || defaultServerUrl();
 }
 function onlineSend(obj){
   if (!online.ws || online.ws.readyState !== 1) { toast('Not connected to the server.'); return; }
@@ -730,7 +869,7 @@ function connectOnline(then){
   catch (e) { hideWait(); toast('That server address looks wrong.'); return; }
   online.ws = ws;
   const failTimer = setTimeout(() => {
-    if (ws.readyState !== 1) { hideWait(); toast('Could not reach the game server. Is it running? Check the server address on the home screen.'); try { ws.close(); } catch (e) {} }
+    if (ws.readyState !== 1) { hideWait(); toast('Could not reach the game server at ' + serverUrl() + '. Online rooms need the game server running — bot games work without it.', 5200); try { ws.close(); } catch (e) {} }
   }, 7000);
   ws.onopen = () => { clearTimeout(failTimer); online.reconnectTries = 0; then && then(); };
   ws.onmessage = (m) => { let msg; try { msg = JSON.parse(m.data); } catch (e) { return; } onServerMessage(msg); };
@@ -783,8 +922,14 @@ function renderLobby(msg){
     '<span class="st">' + (p.connected ? 'ready' : 'away') + '</span></div>').join('');
   $('hostControls').classList.toggle('hidden', !msg.youAreHost);
   $('waitHostNote').classList.toggle('hidden', msg.youAreHost);
-  $('startGameBtn').disabled = msg.players.length < 2;
-  $('startGameBtn').textContent = msg.players.length < 2 ? 'Need at least 2 players' : 'Start game (' + msg.players.length + ' players)';
+  const n = msg.players.length;
+  $('lobbyStatus').textContent =
+    n <= 1 ? 'Waiting for players — share the invite link to bring friends in. (' + n + '/6 joined, 3 needed to start)'
+    : n === 2 ? 'Waiting for at least one more player. Share the room link to invite a friend. (2/6 joined)'
+    : 'Ready! ' + n + ' players in the room (max 6). The host can start whenever ready.';
+  if (msg.declarationMode) $('lobbyModeNote').textContent = 'Declaration style: ' + (msg.declarationMode === 'sequence' ? 'Sequence' : 'Free bluff') + '. Friends open the link, type their name, and tap Join. If the link opens inside an app and looks stuck, open it in Chrome or Safari instead.';
+  $('startGameBtn').disabled = n < 3;
+  $('startGameBtn').textContent = n < 3 ? 'Waiting for players (' + n + '/3 minimum)' : 'Start game (' + n + ' players)';
 }
 function inviteLink(){
   return location.origin + location.pathname + '?room=' + (online.roomCode || '');
@@ -794,7 +939,7 @@ function createRoom(){
   if (!name) { toast('Type your name first.'); $('nameInput').focus(); return; }
   settings.name = name; settings.server = serverUrl(); saveSettings();
   mode = 'online'; online.started = false; gameOverShown = false;
-  connectOnline(() => onlineSend({ type: 'create', name }));
+  connectOnline(() => onlineSend({ type: 'create', name, declarationMode: settings.declMode || 'free' }));
 }
 function joinRoom(code, token){
   const name = ($('nameInput').value || '').trim();
@@ -819,6 +964,19 @@ function segWire(id, fn){
 }
 segWire('botCountSeg', v => botCount = parseInt(v, 10));
 segWire('botDiffSeg', v => botDiff = v);
+segWire('declSeg', v => { settings.declMode = v; saveSettings(); });
+$('copyCodeBtn').addEventListener('click', async () => {
+  const code = online.roomCode || '';
+  if (!code) { toast('No room code yet.'); return; }
+  try { await navigator.clipboard.writeText(code); toast('Room code copied: ' + code); }
+  catch (e) { prompt('Copy this room code:', code); }
+});
+// Build the declaration rank chips (A..K).
+$('rankGrid').innerHTML = RANKS.map((r, i) => '<button class="rankChip" data-rank="' + i + '">' + r + '</button>').join('');
+$('rankGrid').querySelectorAll('.rankChip').forEach(ch => ch.addEventListener('click', () => {
+  selectedRank = Number(ch.dataset.rank); sfx.select();
+  if (view) renderGame(view);
+}));
 $('playBotsBtn').addEventListener('click', () => { ac(); startBotGame(); });
 $('createRoomBtn').addEventListener('click', () => { ac(); createRoom(); });
 $('joinRoomBtn').addEventListener('click', () => {
@@ -877,7 +1035,11 @@ $('nameInput').addEventListener('change', () => { settings.name = $('nameInput')
 /* ================= init ================= */
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
 $('nameInput').value = settings.name || '';
-$('serverInput').value = settings.server || 'ws://localhost:8080';
+$('serverInput').value = settings.server || '';
+$('serverInput').placeholder = defaultServerUrl();
+if ((settings.declMode || 'free') !== 'free') {
+  $('declSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.declMode));
+}
 refreshSoundButtons();
 {
   const params = new URLSearchParams(location.search);
