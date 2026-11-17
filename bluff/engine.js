@@ -118,7 +118,11 @@
       connected: true,
       hand: [],
     }));
-    deck.forEach((c, i) => players[i % players.length].hand.push(c));
+    // Round-robin from a RANDOM starting seat: hand sizes stay within one
+    // card of each other (52 = e.g. 18/17/17 for 3 players, 13 each for 4),
+    // but the extra cards rotate fairly instead of always landing on seat 0.
+    const dealStart = Math.floor(rng() * players.length);
+    deck.forEach((c, i) => players[(dealStart + i) % players.length].hand.push(c));
     players.forEach(p => sortHand(p.hand));
     return {
       players,
@@ -497,6 +501,12 @@
     const pile = view.pileSize;
     const hand = view.players[myIdx].hand.length;
     if (diff === 'easy') return rng() < 0.5 ? 'burn' : 'add';
+    // Endgame: when few cards remain in circulation, burning is the only
+    // choice that permanently shrinks the game. Without this, medium/hard
+    // bots keep choosing 'add' under their push-on rules and a small pile
+    // can circulate forever (pre-existing sequence-mode stalemate).
+    const inPlay = 52 - (view.burnedCount || 0);
+    if (inPlay <= 16 && rng() < 0.85) return 'burn';
     if (diff === 'medium') {
       if (pile >= 10) return 'burn';            // bank a big pile safely
       if (hand <= 3) return 'add';              // close to going out: push on
@@ -528,11 +538,15 @@
 
     if (certainBluff) return 'check';
     if (isFinal) {
-      // Challenging a final play is almost always right: if it was honest
-      // the game simply continues with me holding the pile.
+      // Challenging a final play is usually right: if it was honest the
+      // game simply continues with me holding the pile. But near-certain
+      // checks from EVERY responder deadlock the endgame: when all players
+      // hold exactly 2 mismatched cards, the min-2 opening rule forces a
+      // bluffed final play that can then never survive. Human-like rates
+      // (still check-leaning) let an occasional bluff slip through and win.
       if (diff === 'easy') return rng() < 0.45 ? 'check' : 'pass';
-      if (diff === 'medium') return rng() < 0.85 ? 'check' : 'pass';
-      return pile >= 20 && rng() < 0.3 ? 'pass' : 'check';
+      if (diff === 'medium') return rng() < 0.65 ? 'check' : 'pass';
+      return pile >= 20 && rng() < 0.45 ? 'pass' : (rng() < 0.8 ? 'check' : 'pass');
     }
     if (play.four) {
       // Four-of-a-kind claim: bold by nature. (If I hold even one of the

@@ -49,6 +49,38 @@ for (let n = 2; n <= 6; n++) {
   ok(Math.max(...counts) - Math.min(...counts) <= 1, 'deal is even, ' + n + ' players');
 }
 
+/* --- Exact distribution + fair rotation of extra cards --- */
+{
+  const EXPECTED = { 2: [26, 26], 3: [18, 17, 17], 4: [13, 13, 13, 13], 5: [11, 11, 10, 10, 10], 6: [9, 9, 9, 9, 8, 8] };
+  const fullDeck = new Set(E.createDeck());
+  for (let n = 2; n <= 6; n++) {
+    const defs = Array.from({ length: n }, (_, i) => ({ name: 'P' + i }));
+    let exactEveryTime = true, allCardsOnce = true;
+    for (let g = 0; g < 60; g++) {
+      const s = E.newGame(defs, { rng: E.mulberry32(7000 + n * 1000 + g) });
+      const counts = s.players.map(p => p.hand.length).sort((a, b) => b - a);
+      if (JSON.stringify(counts) !== JSON.stringify(EXPECTED[n])) exactEveryTime = false;
+      const dealt = s.players.flatMap(p => p.hand);
+      if (dealt.length !== 52 || new Set(dealt).size !== 52 || !dealt.every(c => fullDeck.has(c))) allCardsOnce = false;
+    }
+    ok(exactEveryTime, 'exact distribution ' + EXPECTED[n].join('/') + ' over 60 deals, ' + n + ' players');
+    ok(allCardsOnce, 'every card dealt exactly once, ' + n + ' players');
+  }
+  // Fairness: over 600 deals the extra card(s) must rotate across all seats.
+  for (const [n, big] of [[3, 18], [5, 11], [6, 9]]) {
+    const defs = Array.from({ length: n }, (_, i) => ({ name: 'P' + i }));
+    const bigCount = new Array(n).fill(0);
+    for (let g = 0; g < 600; g++) {
+      const s = E.newGame(defs, { rng: E.mulberry32(31000 + n * 10000 + g) });
+      s.players.forEach(p => { if (p.hand.length === big) bigCount[p.idx]++; });
+    }
+    const expected = 600 * (52 % n) / n;
+    ok(bigCount.every(c => c > expected * 0.55 && c < expected * 1.45),
+      'extra cards rotate fairly, ' + n + ' players (per-seat ' + bigCount.join('/') + ', expected ~' + Math.round(expected) + ')');
+    ok(bigCount[0] < 600, 'extra card not always to seat 0, ' + n + ' players');
+  }
+}
+
 /* --- Opening rule --- */
 {
   const s = rig([['AS', 'AH', '5C', '9D'], ['2S', '3S', '4S']]);

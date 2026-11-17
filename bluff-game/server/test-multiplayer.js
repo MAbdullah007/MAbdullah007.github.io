@@ -248,6 +248,9 @@ async function main() {
     P.send({ type: 'play', cards: [hand[0]], declaredRank: rankOf(hand[0]), actionId: 'r2-add-play' });
     const grown = (await Q.waitFor(m => m.type === 'view' && m.view.phase === 'respond' && m.view.pileSize === 3, 'grown pile view')).view;
     ok(grown.pileSize === 3 && conserve(grown), 'ADD MORE: pile preserved and grows to 3, cards conserved');
+    // P's own view must reach the same state before we read the responder
+    // from it — views arrive per-client and P can lag a message behind Q.
+    await P.waitFor(m => m.type === 'view' && m.view.phase === 'respond' && m.view.pileSize === 3 && m.view.responder !== null, 'grown pile view (P)');
 
     // Disconnect during the response cycle: whoever must respond next
     // drops; the 2.5s stall timer auto-passes them, the remaining responder
