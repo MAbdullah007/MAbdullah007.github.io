@@ -280,31 +280,40 @@
     .pcard { width: 60px; height: 86px; margin-left: -14px; }
     .pcard .r { font-size: 17px; } .pcard .big { font-size: 28px; }
   }
-  /* ---------- Desktop (≥900px): use the wide screen like a real table ---------- */
+  /* ---------- Desktop (≥900px): everything on one screen, nothing overlaid.
+     The control bar leaves its fixed overlay position and sits in the flow
+     under the table, and the table is sized to the viewport height — so all
+     opponents, the hand and the buttons are visible without scrolling. ---- */
   @media (min-width: 900px) {
     .screen { max-width: 700px; padding-top: 28px; }
-    #gameScreen { max-width: 1080px; padding: 0 18px 372px; }
-    .felt { min-height: 440px; margin-top: 16px; border-radius: 26px; }
-    .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 540px; }
+    #gameScreen { max-width: 1080px; padding: 0 18px 6px; }
+    .felt { min-height: 348px; margin-top: 12px; border-radius: 26px; }
+    .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 356px; }
     .opp { width: 122px; padding: 12px 8px 10px; border-radius: 16px; }
     .opp .avatar { width: 52px; height: 52px; font-size: 21px; }
     .opp .nm { font-size: 14px; }
-    .center-area { padding-top: 128px; }
+    .center-area { padding-top: 106px; }
     .felt.oc3 .center-area, .felt.oc4 .center-area, .felt.oc5 .center-area { padding-left: 140px; padding-right: 140px; }
-    .pile-wrap { width: 108px; height: 122px; }
-    .pile-empty { width: 108px; height: 122px; font-size: 13px; }
+    .pile-wrap { width: 104px; height: 118px; }
+    .pile-empty { width: 104px; height: 118px; font-size: 13px; }
+    .mybar { position: static; background: none; padding: 8px 18px 16px; }
     .mybar-inner { max-width: 1080px; }
     .turn-banner { font-size: 17px; }
     .rankGrid { grid-template-columns: repeat(13, 1fr); }
-    .rankChip { padding: 11px 0; font-size: 16px; }
-    .hand { min-height: 138px; }
-    .handRow { padding-top: 20px; }
-    .pcard { width: 78px; height: 112px; margin-left: -20px; border-radius: 10px; }
-    .pcard .r { font-size: 21px; top: 5px; left: 8px; }
-    .pcard .s { font-size: 17px; top: 27px; left: 8px; }
-    .pcard .big { font-size: 38px; right: 7px; bottom: 5px; }
-    .pcard.sel { transform: translateY(-20px); }
-    .actions .btn { padding-top: 15px; padding-bottom: 15px; font-size: 16.5px; }
+    .rankChip { padding: 10px 0; font-size: 16px; }
+    .hand { min-height: 124px; }
+    .handRow { padding-top: 12px; }
+    .pcard { width: 72px; height: 104px; margin-left: -19px; border-radius: 10px; }
+    .pcard .r { font-size: 20px; top: 5px; left: 8px; }
+    .pcard .s { font-size: 16px; top: 26px; left: 8px; }
+    .pcard .big { font-size: 35px; right: 7px; bottom: 5px; }
+    .pcard.sel { transform: translateY(-18px); }
+    .actions .btn { padding-top: 13px; padding-bottom: 13px; font-size: 16.5px; }
+  }
+  /* Very tall desktop screens can afford a grander table. */
+  @media (min-width: 900px) and (min-height: 940px) {
+    .felt { min-height: 430px; }
+    .felt.oc3, .felt.oc4, .felt.oc5 { min-height: 470px; }
   }
 </style>
 </head>
